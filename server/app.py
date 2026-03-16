@@ -232,19 +232,6 @@ def api_elo(steam_id):
 
 # ── OVERLAY ───────────────────────────────────────────────────────────────────
 
-OVERLAY_STYLES = {
-    1:  dict(name="Gold Shield",   bg="rgba(10,10,15,0.85)",                                          border="rgba(255,170,0,0.3)",   accent="#ffaa00", num="#ffffff", mono=False, shield=True),
-    2:  dict(name="CS2 Premier",   bg="linear-gradient(135deg,rgba(155,0,95,0.92),rgba(65,0,145,0.92))", border="rgba(255,0,180,0.4)",  accent="#ff44cc", num="#ffffff", mono=False, shield=False),
-    3:  dict(name="Minimal",       bg="rgba(0,0,0,0.72)",                                             border="rgba(255,255,255,0.12)",accent="rgba(255,255,255,0.5)", num="#ffffff", mono=False, shield=False),
-    4:  dict(name="Neon Cyan",     bg="rgba(0,10,20,0.92)",                                           border="rgba(0,220,255,0.3)",   accent="#00dcff", num="#00dcff", mono=False, shield=False, glow="0 0 18px rgba(0,220,255,0.2)"),
-    5:  dict(name="Red Heat",      bg="rgba(15,0,0,0.92)",                                            border="rgba(255,50,50,0.3)",   accent="#ff3333", num="#ffffff", mono=False, shield=False),
-    6:  dict(name="Ice Blue",      bg="rgba(0,5,25,0.92)",                                            border="rgba(80,140,255,0.3)",  accent="#4d90ff", num="#ffffff", mono=False, shield=False),
-    7:  dict(name="Matrix",        bg="rgba(0,8,0,0.92)",                                             border="rgba(0,255,65,0.2)",    accent="#00ff41", num="#00ff41", mono=True,  shield=False),
-    8:  dict(name="Ghost",         bg="rgba(255,255,255,0.07)",                                       border="rgba(255,255,255,0.25)",accent="#ffffff", num="#ffffff", mono=False, shield=False, blur=True),
-    9:  dict(name="Purple Haze",   bg="rgba(18,0,38,0.92)",                                          border="rgba(160,0,255,0.3)",   accent="#a020f0", num="#ffffff", mono=False, shield=False),
-    10: dict(name="Blood Orange",  bg="rgba(15,5,0,0.92)",                                           border="rgba(255,120,0,0.3)",   accent="#ff7700", num="#ffffff", mono=False, shield=False),
-}
-
 @app.route("/overlay/<steam_id>")
 def overlay(steam_id):
     user = User.query.filter_by(steam_id=steam_id).first()
@@ -252,93 +239,125 @@ def overlay(steam_id):
         return "User not found", 404
 
     try:
-        style_id = max(1, min(10, int(request.args.get("style", 1))))
+        sid = max(1, min(10, int(request.args.get("style", 1))))
     except (ValueError, TypeError):
-        style_id = 1
+        sid = 1
 
-    s = OVERLAY_STYLES[style_id]
-    extra_css = ""
-    if s.get("glow"):
-        extra_css += f"box-shadow:{s['glow']};"
-    if s.get("blur"):
-        extra_css += "backdrop-filter:blur(10px);"
-
-    num_font = "Share Tech Mono" if s["mono"] else "Bebas Neue"
-
-    shield_svg = ""
-    divider    = ""
-    if s["shield"]:
-        shield_svg = '<svg width="26" height="26" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="100" height="100" rx="14" fill="#1a1a2e"/><path d="M50 12 L82 28 L82 58 C82 75 66 87 50 92 C34 87 18 75 18 58 L18 28 Z" fill="none" stroke="#ffaa00" stroke-width="5" stroke-linejoin="round"/><path d="M37 51 L45 60 L64 39" stroke="#ffaa00" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
-        divider    = '<div style="width:1px;height:28px;background:rgba(255,255,255,0.1)"></div>'
-
-    style_id_val = style_id
-    html = f"""<!DOCTYPE html>
-<html><head><meta charset="UTF-8">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-<style>
-*{{margin:0;padding:0;box-sizing:border-box}}
-body{{background:transparent;overflow:hidden;font-family:'Barlow',sans-serif}}
-#w{{display:inline-flex;align-items:center;gap:10px;background:{s['bg']};border:1px solid {s['border']};border-left:3px solid {s['accent']};border-radius:6px;padding:10px 18px 10px 14px;{extra_css}}}
-.lb{{font-size:9px;font-weight:700;letter-spacing:2.5px;color:{s['accent']};text-transform:uppercase;margin-bottom:3px}}
-#e{{font-family:'{num_font}',sans-serif;font-size:30px;color:{s['num']};line-height:1;letter-spacing:1px;min-width:70px}}
-#s{{font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px}}
-#b{{font-size:11px;font-weight:700;padding:3px 7px;border-radius:3px;display:none}}
-.u{{background:rgba(0,200,100,0.18);color:#00cc66;display:block}}
-.dn{{background:rgba(220,50,50,0.18);color:#ff4444;display:block}}
-@keyframes bl{{0%,100%{{opacity:1}}50%{{opacity:.3}}}}
-@keyframes pop{{0%{{transform:scale(1)}}50%{{transform:scale(1.1)}}100%{{transform:scale(1)}}}}
-.bl{{animation:bl 1.4s ease-in-out infinite}}
-.pop{{animation:pop .3s ease}}
-</style></head><body>
-<div id="w">
-{shield_svg}{divider}
-<div><div class="lb">Premier ELO</div><div id="e" class="bl">---</div><div id="s">loading...</div></div>
-<div id="b"></div>
-</div>
-<script>
-const STYLE={style_id_val};
+    # Common JS for all styles - tier color system
+    js = f"""<script>
 const TIERS=[
-  {{min:30000,color:'#ffd700',bg1:'rgba(40,25,0,0.92)',  bg2:'rgba(20,12,0,0.92)'}},
-  {{min:25000,color:'#f44336',bg1:'rgba(40,5,5,0.92)',   bg2:'rgba(20,0,0,0.92)'}},
-  {{min:20000,color:'#e91e8c',bg1:'rgba(140,0,80,0.92)', bg2:'rgba(65,0,140,0.92)'}},
-  {{min:15000,color:'#9c27b0',bg1:'rgba(55,0,90,0.92)',  bg2:'rgba(25,0,50,0.92)'}},
-  {{min:10000,color:'#3f51b5',bg1:'rgba(20,25,110,0.92)',bg2:'rgba(10,12,55,0.92)'}},
-  {{min:5000, color:'#64b5f6',bg1:'rgba(10,35,75,0.92)', bg2:'rgba(5,18,38,0.92)'}},
-  {{min:0,    color:'#9e9e9e',bg1:'rgba(18,18,18,0.92)', bg2:'rgba(9,9,9,0.92)'  }},
+  {{min:30000,c:'#ffd700',b1:'rgba(50,30,0,.92)', b2:'rgba(25,15,0,.92)'}},
+  {{min:25000,c:'#f44336',b1:'rgba(50,5,5,.92)',  b2:'rgba(25,0,0,.92)'}},
+  {{min:20000,c:'#e91e8c',b1:'rgba(140,0,80,.92)',b2:'rgba(70,0,140,.92)'}},
+  {{min:15000,c:'#9c27b0',b1:'rgba(60,0,95,.92)', b2:'rgba(28,0,55,.92)'}},
+  {{min:10000,c:'#3f51b5',b1:'rgba(20,25,115,.92)',b2:'rgba(10,12,58,.92)'}},
+  {{min:5000, c:'#64b5f6',b1:'rgba(10,38,80,.92)', b2:'rgba(5,18,40,.92)'}},
+  {{min:0,    c:'#9e9e9e',b1:'rgba(20,20,20,.92)', b2:'rgba(10,10,10,.92)'}},
 ];
-function getTier(elo){{return TIERS.find(t=>elo>=t.min)||TIERS[TIERS.length-1];}}
-function applyTier(tier){{
-  const w=document.getElementById('w');
-  w.style.borderLeftColor=tier.color;
-  document.querySelectorAll('.lb').forEach(el=>el.style.color=tier.color);
-  if(STYLE===2){{
-    w.style.background=`linear-gradient(135deg,${{tier.bg1}},${{tier.bg2}})`;
-    document.getElementById('e').style.color=tier.color;
-    w.style.borderColor=tier.color+'66';
-  }}
-}}
+function T(e){{return TIERS.find(t=>e>=t.min)||TIERS[6];}}
 let last=null;
-const $e=document.getElementById('e'),$s=document.getElementById('s'),$b=document.getElementById('b');
+const $e=document.getElementById('e');
+const $s=document.getElementById('s');
+const $b=document.getElementById('b');
 async function poll(){{
   try{{
     const d=await fetch('/api/elo/{steam_id}').then(r=>r.json());
     if(d.elo){{
+      const t=T(d.elo);
       $e.classList.remove('bl');$e.classList.add('pop');
       setTimeout(()=>$e.classList.remove('pop'),350);
       $e.textContent=d.elo.toLocaleString('en-US');
-      $s.textContent=d.ts?'update '+d.ts:'';
-      applyTier(getTier(d.elo));
-      if(d.diff&&d.diff!==0&&last!==null){{
+      if($s)$s.textContent=d.ts?'update '+d.ts:'';
+      document.querySelectorAll('[data-c]').forEach(el=>el.style.color=t.c);
+      document.querySelectorAll('[data-bl]').forEach(el=>el.style.borderLeftColor=t.c);
+      document.querySelectorAll('[data-bc]').forEach(el=>{{el.style.borderColor=t.c+'55';}});
+      document.querySelectorAll('[data-bg]').forEach(el=>{{el.style.background=`linear-gradient(135deg,${{t.b1}},${{t.b2}})`;}});
+      document.querySelectorAll('[data-fill]').forEach(el=>el.style.background=t.c);
+      document.querySelectorAll('[data-glow]').forEach(el=>{{el.style.textShadow=`0 0 20px ${{t.c}}aa,0 0 40px ${{t.c}}44`;}});
+      if(d.diff&&d.diff!==0&&last!==null&&$b){{
         $b.textContent=(d.diff>0?'+':'')+d.diff;
         $b.className=d.diff>0?'u':'dn';
         setTimeout(()=>{{$b.className='';$b.style.display='none';}},8000);
       }}
       last=d.elo;
-    }}else{{$s.textContent='ceka ELO...';}}
-  }}catch(e){{$s.textContent='retry...';}}
+    }}else{{if($s)$s.textContent='ceka ELO...';}}
+  }}catch(err){{if($s)$s.textContent='retry...';}}
 }}
 poll();setInterval(poll,15000);
-</script></body></html>"""
+</script>"""
+
+    base = """*{margin:0;padding:0;box-sizing:border-box}body{background:transparent;overflow:hidden}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:.3}}@keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.1)}100%{transform:scale(1)}}
+.bl{animation:bl 1.4s ease-in-out infinite}.pop{animation:pop .3s ease}
+#b{font-size:11px;font-weight:700;padding:2px 7px;border-radius:3px;display:none}
+.u{background:rgba(0,200,100,.18);color:#00cc66;display:block}.dn{background:rgba(220,50,50,.18);color:#ff4444;display:block}"""
+
+    FONTS = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;700;900&family=Share+Tech+Mono&family=Orbitron:wght@700&display=swap"
+
+    # 10 genuinely different overlay layouts
+    if sid == 1:
+        # Classic Shield - horizontal, dark bg, shield icon
+        css = "body{font-family:'Barlow',sans-serif}#w{display:inline-flex;align-items:center;gap:10px;background:rgba(10,10,15,.88);border:1px solid rgba(255,170,0,.25);border-left:3px solid #ffaa00;border-radius:6px;padding:10px 18px 10px 12px}.lb{font-size:8px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:3px}#e{font-family:'Bebas Neue';font-size:30px;color:#fff;line-height:1;letter-spacing:1px;min-width:70px}#s{font-size:9px;color:rgba(255,255,255,.28);margin-top:2px}"
+        body = """<div id="w" data-bl><svg width="24" height="24" viewBox="0 0 100 100" style="flex-shrink:0"><rect width="100" height="100" rx="14" fill="#1a1a2e"/><path d="M50 12L82 28L82 58C82 75 66 87 50 92C34 87 18 75 18 58L18 28Z" fill="none" stroke="#ffaa00" stroke-width="5"/><path d="M37 51L45 60L64 39" stroke="#ffaa00" stroke-width="6" fill="none"/></svg>
+<div style="width:1px;height:26px;background:rgba(255,255,255,.1)"></div>
+<div><div class="lb" data-c style="color:#ffaa00">PREMIER ELO</div><div id="e" class="bl">---</div><div id="s"></div></div>
+<div id="b"></div></div>"""
+
+    elif sid == 2:
+        # CS2 In-Game style - exactly like the screenshot: thick left border, auto-color gradient bg, big number
+        css = "body{font-family:'Barlow',sans-serif}#w{display:inline-flex;align-items:center;gap:0;border-left:5px solid #e91e8c;border-radius:4px;overflow:hidden}#inner{background:rgba(140,0,80,.82);padding:7px 14px 7px 10px}#e{font-family:'Bebas Neue';font-size:32px;color:#fff;line-height:1;letter-spacing:2px;min-width:75px}#b-wrap{display:flex;align-items:center;gap:6px}#s{display:none}"
+        body = """<div id="w" data-bl><div id="inner" data-bg>
+<div id="b-wrap"><div id="e" class="bl">---</div><div id="b"></div></div>
+</div></div><div id="s"></div>"""
+
+    elif sid == 3:
+        # Minimal - just the number, colored bar underneath, no background
+        css = "body{font-family:'Barlow',sans-serif}#e{font-family:'Bebas Neue';font-size:38px;color:#fff;line-height:1;letter-spacing:3px}#bar{height:3px;background:#ffaa00;margin-top:4px;border-radius:2px}.lb{font-size:7px;font-weight:700;letter-spacing:3px;color:rgba(255,255,255,.35);text-transform:uppercase;margin-bottom:5px}#s{font-size:8px;color:rgba(255,255,255,.25);margin-top:3px}"
+        body = """<div><div class="lb" data-c style="color:rgba(255,255,255,.35)">PREMIER ELO</div><div id="e" class="bl" data-c style="color:#fff">---</div><div id="bar" data-fill></div><div id="s"></div><div id="b" style="margin-top:3px"></div></div>"""
+
+    elif sid == 4:
+        # Pill / Capsule - rounded, single line, ELO label + number
+        css = "body{font-family:'Barlow',sans-serif}#w{display:inline-flex;align-items:stretch;background:rgba(8,8,12,.9);border:1px solid rgba(255,170,0,.25);border-radius:50px;overflow:hidden}#left{padding:7px 12px 7px 14px;border-right:1px solid rgba(255,255,255,.07)}#right{padding:7px 14px 7px 12px;display:flex;align-items:center;gap:6px}.tag{font-size:7px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:2px}#e{font-family:'Bebas Neue';font-size:24px;line-height:1;letter-spacing:1px}#s{display:none}"
+        body = """<div id="w" data-bl><div id="left" data-bg style="background:rgba(255,170,0,.1)"><div class="tag" data-c style="color:rgba(255,255,255,.4)">PREMIER</div><div id="e" class="bl" data-c style="color:#ffaa00">---</div></div>
+<div id="right"><div id="b"></div></div></div><div id="s"></div>"""
+
+    elif sid == 5:
+        # Neon Glow - dark bg, number glows with tier color
+        css = "body{font-family:'Barlow',sans-serif;text-align:center}#wrap{display:inline-block;padding:8px 18px}.lb{font-size:7px;font-weight:700;letter-spacing:4px;color:rgba(255,255,255,.3);text-transform:uppercase;margin-bottom:5px}#e{font-family:'Bebas Neue';font-size:44px;color:#ffaa00;line-height:1;letter-spacing:3px;text-shadow:0 0 20px #ffaa00aa,0 0 40px #ffaa0044}#s{font-size:8px;color:rgba(255,255,255,.22);margin-top:4px}"
+        body = """<div id="wrap"><div class="lb" data-c style="color:rgba(255,255,255,.3)">PREMIER ELO</div><div id="e" class="bl" data-c data-glow>---</div><div id="s"></div><div id="b" style="margin-top:3px;display:inline-block"></div></div>"""
+
+    elif sid == 6:
+        # Vertical Card - stacked layout, rank color on left side
+        css = "body{font-family:'Barlow',sans-serif}#w{display:inline-flex;flex-direction:column;background:rgba(8,8,14,.92);border:1px solid rgba(255,255,255,.07);border-left:4px solid #ffaa00;border-radius:6px;padding:12px 16px;min-width:120px}.lb{font-size:7px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:7px}#e{font-family:'Bebas Neue';font-size:38px;color:#fff;line-height:1;letter-spacing:2px}#s{font-size:8px;color:rgba(255,255,255,.22);margin-top:5px}"
+        body = """<div id="w" data-bl><div class="lb" data-c style="color:#ffaa00">PREMIER ELO</div><div id="e" class="bl">---</div><div id="b" style="margin-top:5px"></div><div id="s"></div></div>"""
+
+    elif sid == 7:
+        # HUD Brackets - corner bracket design
+        css = "body{font-family:'Share Tech Mono',monospace}#wrap{display:inline-block;position:relative;padding:12px 16px}.br{position:absolute;width:10px;height:10px}.tl{top:0;left:0;border-top:2px solid #ffaa00;border-left:2px solid #ffaa00}.tr{top:0;right:0;border-top:2px solid #ffaa00;border-right:2px solid #ffaa00}.bl2{bottom:0;left:0;border-bottom:2px solid #ffaa00;border-left:2px solid #ffaa00}.br2{bottom:0;right:0;border-bottom:2px solid #ffaa00;border-right:2px solid #ffaa00}.lb{font-size:7px;letter-spacing:3px;color:rgba(255,255,255,.35);margin-bottom:5px;text-align:center}#e{font-family:'Bebas Neue';font-size:30px;color:#ffaa00;line-height:1;letter-spacing:2px;text-align:center}#s{font-size:7px;color:rgba(255,255,255,.22);margin-top:4px;text-align:center}"
+        body = """<div id="wrap"><div class="br tl" data-fill style="background:none;border-color:#ffaa00" id="c1"></div><div class="br tr" data-fill style="background:none;border-color:#ffaa00" id="c2"></div><div class="br bl2" data-fill style="background:none;border-color:#ffaa00" id="c3"></div><div class="br br2" data-fill style="background:none;border-color:#ffaa00" id="c4"></div>
+<div class="lb" data-c style="color:rgba(255,255,255,.35)">PREMIER ELO</div><div id="e" class="bl" data-c>---</div><div id="s"></div><div id="b" style="text-align:center;margin-top:3px"></div></div>"""
+
+    elif sid == 8:
+        # Terminal / Retro DOS style
+        css = "body{font-family:'Share Tech Mono',monospace}#w{display:inline-block;background:rgba(0,10,0,.94);border:1px solid #00ff4122;border-radius:3px;padding:10px 16px}.prompt{font-size:8px;color:#00ff4166;letter-spacing:1px;margin-bottom:6px}#e{font-size:28px;color:#00ff41;line-height:1;letter-spacing:3px}#s{font-size:8px;color:#00ff4144;margin-top:5px}#b{color:#00ff41}"
+        body = """<div id="w"><div class="prompt">&gt; PREMIER_ELO.exe</div><div id="e" class="bl">---</div><div id="s"></div><div id="b" style="margin-top:3px"></div></div>"""
+
+    elif sid == 9:
+        # Frosted Glass - modern, blur effect
+        css = "body{font-family:'Barlow',sans-serif}#w{display:inline-flex;align-items:center;gap:12px;background:rgba(255,255,255,.06);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.14);border-left:3px solid rgba(255,255,255,.5);border-radius:14px;padding:12px 20px}.lb{font-size:7px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:5px}#e{font-family:'Bebas Neue';font-size:32px;color:#fff;line-height:1;letter-spacing:1px;min-width:78px}#s{font-size:8px;color:rgba(255,255,255,.25);margin-top:3px}"
+        body = """<div id="w" data-bl><div><div class="lb" data-c style="color:rgba(255,255,255,.4)">PREMIER ELO</div><div id="e" class="bl">---</div><div id="s"></div></div><div id="b"></div></div>"""
+
+    else:  # sid == 10
+        # XL Bold - huge number, accent line, minimal text
+        css = "body{font-family:'Barlow',sans-serif}#e{font-family:'Bebas Neue';font-size:58px;color:#fff;line-height:1;letter-spacing:4px}#line{height:3px;background:#ffaa00;margin:5px 0 4px;border-radius:2px}#foot{display:flex;align-items:center;justify-content:space-between}.lb{font-size:7px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.35)}"
+        body = """<div><div id="e" class="bl" data-c style="color:#fff">---</div><div id="line" data-fill></div><div id="foot"><div class="lb" data-c style="color:rgba(255,255,255,.35)">PREMIER ELO</div><div id="b"></div></div></div><div id="s" style="display:none"></div>"""
+
+    html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
+<link href="{FONTS}" rel="stylesheet">
+<style>{base}{css}</style></head><body>
+{body}
+{js}
+</body></html>"""
 
     response = app.make_response(html)
     response.headers["Content-Type"] = "text/html; charset=utf-8"
