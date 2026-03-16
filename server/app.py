@@ -303,12 +303,13 @@ poll();setInterval(poll,15000);
 <div id="b"></div></div>"""
 
     elif sid == 2:
-        # CS2 EXACT replica: two || bars (data-fill) + tinted bg (data-tint) + tier-colored number (data-c)
-        css = "body{font-family:'Barlow',sans-serif}#w{display:inline-flex;align-items:center;gap:8px;background:rgba(15,15,20,.9);border-radius:4px;padding:7px 14px 7px 8px}#bars{display:flex;gap:3px;align-items:center}.bar{width:4px;height:34px;border-radius:1px}#e{font-family:'Bebas Neue';font-size:34px;line-height:1;letter-spacing:2px;min-width:80px}#s{display:none}"
-        body = """<div id="w" data-tint>
+        # CS2 EXACT replica: skewed parallelogram bg, two || bars, tier-colored number
+        css = "body{font-family:'Barlow',sans-serif}#w{display:inline-flex;align-items:center;position:relative;padding:5px 14px 5px 8px;gap:6px}#skew-bg{position:absolute;inset:0;transform:skewX(-10deg);border-radius:1px}#bars{display:flex;gap:3px;align-items:center;position:relative;z-index:1}.bar{width:3px;height:26px;border-radius:0}#e{font-family:'Bebas Neue';font-size:28px;line-height:1;letter-spacing:1px;position:relative;z-index:1}#s{display:none}"
+        body = """<div id="w">
+<div id="skew-bg" data-tint></div>
 <div id="bars"><div class="bar" data-fill></div><div class="bar" data-fill></div></div>
 <div id="e" class="bl" data-c>---</div>
-<div id="b"></div></div><div id="s"></div>"""
+<div id="b" style="position:relative;z-index:1"></div></div><div id="s"></div>"""
 
     elif sid == 3:
         # Minimal - just the number, colored bar underneath, no background
