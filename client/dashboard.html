@@ -949,8 +949,8 @@
           document.getElementById("overlay-url-text").textContent = overlayUrl;
           document.getElementById("url-card").style.display = "block";
 
-          // Sakrij setup ako vec ima API kljuc
-          if (d.has_setup) {
+          // Sakrij setup samo ako ima ELO
+          if (d.elo) {
             document.getElementById("setup-card").style.display = "none";
           }
         } catch (e) {
