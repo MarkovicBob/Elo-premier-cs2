@@ -271,6 +271,7 @@ def overlay(steam_id):
         shield_svg = '<svg width="26" height="26" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="100" height="100" rx="14" fill="#1a1a2e"/><path d="M50 12 L82 28 L82 58 C82 75 66 87 50 92 C34 87 18 75 18 58 L18 28 Z" fill="none" stroke="#ffaa00" stroke-width="5" stroke-linejoin="round"/><path d="M37 51 L45 60 L64 39" stroke="#ffaa00" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
         divider    = '<div style="width:1px;height:28px;background:rgba(255,255,255,0.1)"></div>'
 
+    style_id_val = style_id
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
@@ -295,6 +296,27 @@ body{{background:transparent;overflow:hidden;font-family:'Barlow',sans-serif}}
 <div id="b"></div>
 </div>
 <script>
+const STYLE={style_id_val};
+const TIERS=[
+  {{min:30000,color:'#ffd700',bg1:'rgba(40,25,0,0.92)',  bg2:'rgba(20,12,0,0.92)'}},
+  {{min:25000,color:'#f44336',bg1:'rgba(40,5,5,0.92)',   bg2:'rgba(20,0,0,0.92)'}},
+  {{min:20000,color:'#e91e8c',bg1:'rgba(140,0,80,0.92)', bg2:'rgba(65,0,140,0.92)'}},
+  {{min:15000,color:'#9c27b0',bg1:'rgba(55,0,90,0.92)',  bg2:'rgba(25,0,50,0.92)'}},
+  {{min:10000,color:'#3f51b5',bg1:'rgba(20,25,110,0.92)',bg2:'rgba(10,12,55,0.92)'}},
+  {{min:5000, color:'#64b5f6',bg1:'rgba(10,35,75,0.92)', bg2:'rgba(5,18,38,0.92)'}},
+  {{min:0,    color:'#9e9e9e',bg1:'rgba(18,18,18,0.92)', bg2:'rgba(9,9,9,0.92)'  }},
+];
+function getTier(elo){{return TIERS.find(t=>elo>=t.min)||TIERS[TIERS.length-1];}}
+function applyTier(tier){{
+  const w=document.getElementById('w');
+  w.style.borderLeftColor=tier.color;
+  document.querySelectorAll('.lb').forEach(el=>el.style.color=tier.color);
+  if(STYLE===2){{
+    w.style.background=`linear-gradient(135deg,${{tier.bg1}},${{tier.bg2}})`;
+    document.getElementById('e').style.color=tier.color;
+    w.style.borderColor=tier.color+'66';
+  }}
+}}
 let last=null;
 const $e=document.getElementById('e'),$s=document.getElementById('s'),$b=document.getElementById('b');
 async function poll(){{
@@ -305,6 +327,7 @@ async function poll(){{
       setTimeout(()=>$e.classList.remove('pop'),350);
       $e.textContent=d.elo.toLocaleString('en-US');
       $s.textContent=d.ts?'update '+d.ts:'';
+      applyTier(getTier(d.elo));
       if(d.diff&&d.diff!==0&&last!==null){{
         $b.textContent=(d.diff>0?'+':'')+d.diff;
         $b.className=d.diff>0?'u':'dn';
