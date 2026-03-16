@@ -691,7 +691,7 @@
           Dodaj ovaj URL u <strong>TikTok Live Studio</strong>,
           <strong>Streamlabs</strong> ili <strong>OBS</strong> kao Browser
           Source.<br />
-          Preporučena veličina: <strong>280 × 75px</strong>
+          Preporučena veličina: <strong>160 × 92px</strong>
         </div>
       </div>
 
@@ -702,94 +702,8 @@
           Izaberi jedan od dva načina — oba rade jednako dobro.
         </div>
 
-        <!-- TAB SWITCHER -->
-        <div
-          style="
-            display: flex;
-            gap: 0;
-            margin-bottom: 28px;
-            border: 1px solid var(--border);
-          "
-        >
-          <button
-            onclick="showTab('api')"
-            id="tab-api"
-            style="
-              flex: 1;
-              padding: 12px;
-              background: var(--gold);
-              color: var(--bg);
-              font-family: &quot;Share Tech Mono&quot;, monospace;
-              font-size: 11px;
-              letter-spacing: 2px;
-              border: none;
-              cursor: pointer;
-              text-transform: uppercase;
-            "
-          >
-            Steam API Ključ
-          </button>
-          <button
-            onclick="showTab('cookies')"
-            id="tab-cookies"
-            style="
-              flex: 1;
-              padding: 12px;
-              background: transparent;
-              color: var(--text-muted);
-              font-family: &quot;Share Tech Mono&quot;, monospace;
-              font-size: 11px;
-              letter-spacing: 2px;
-              border: none;
-              cursor: pointer;
-              text-transform: uppercase;
-            "
-          >
-            Session Cookies
-          </button>
-        </div>
-
-        <!-- API KEY TAB -->
-        <div id="panel-api">
-          <div class="steps-mini">
-            <div class="step-mini">
-              <div class="step-mini-num">01 //</div>
-              <div class="step-mini-text">
-                Idi na steamcommunity.com/dev/apikey
-              </div>
-            </div>
-            <div class="step-mini">
-              <div class="step-mini-num">02 //</div>
-              <div class="step-mini-text">Generiši besplatan API ključ</div>
-            </div>
-            <div class="step-mini">
-              <div class="step-mini-num">03 //</div>
-              <div class="step-mini-text">Nalepi dole i klikni Sačuvaj</div>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Steam Web API ključ</label>
-            <input
-              class="form-input"
-              id="input-apikey"
-              type="text"
-              placeholder="npr. A1B2C3D4E5F6..."
-            />
-            <div class="form-hint">
-              Uzmi ključ na
-              <a href="https://steamcommunity.com/dev/apikey" target="_blank"
-                >steamcommunity.com/dev/apikey</a
-              >
-              — besplatno, 30 sekundi.
-            </div>
-          </div>
-          <button class="btn-save" onclick="saveApiKey()">
-            <span>Sačuvaj API ključ</span>
-          </button>
-        </div>
-
-        <!-- COOKIES TAB -->
-        <div id="panel-cookies" style="display: none">
+          <!-- COOKIES -->
+        <div id="panel-cookies">
           <div class="steps-mini">
             <div class="step-mini">
               <div class="step-mini-num">01 //</div>
@@ -958,36 +872,6 @@
         }
       }
 
-      async function saveApiKey() {
-        const api_key = document.getElementById("input-apikey").value.trim();
-        if (!api_key) {
-          showMsg("Unesi API ključ!", "error");
-          return;
-        }
-
-        try {
-          const r = await fetch("/api/save-api-key", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ api_key }),
-          });
-          const d = await r.json();
-
-          if (d.success) {
-            showMsg(
-              "Uspešno! ELO: " +
-                (d.elo ? d.elo.toLocaleString("en-US") : "fetchuje se..."),
-              "success",
-            );
-            setTimeout(loadUser, 1500);
-          } else {
-            showMsg("Greška: " + (d.error || "nepoznata"), "error");
-          }
-        } catch (e) {
-          showMsg("Mrežna greška.", "error");
-        }
-      }
-
       function showMsg(text, type) {
         const el = document.getElementById("msg");
         el.textContent = text;
@@ -1101,21 +985,6 @@
       runTutorial();
       // ─────────────────────────────────────────────────────────────────────────────
 
-      function showTab(tab) {
-        document.getElementById("panel-api").style.display =
-          tab === "api" ? "block" : "none";
-        document.getElementById("panel-cookies").style.display =
-          tab === "cookies" ? "block" : "none";
-        document.getElementById("tab-api").style.background =
-          tab === "api" ? "var(--gold)" : "transparent";
-        document.getElementById("tab-api").style.color =
-          tab === "api" ? "var(--bg)" : "var(--text-muted)";
-        document.getElementById("tab-cookies").style.background =
-          tab === "cookies" ? "var(--gold)" : "transparent";
-        document.getElementById("tab-cookies").style.color =
-          tab === "cookies" ? "var(--bg)" : "var(--text-muted)";
-      }
-
       async function saveCookies() {
         const sessionid = document
           .getElementById("input-sessionid")
@@ -1149,7 +1018,6 @@
         }
       }
 
-      showTab("cookies");
       loadUser();
       setInterval(loadUser, 30000);
     </script>

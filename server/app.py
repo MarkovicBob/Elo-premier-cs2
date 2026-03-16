@@ -33,60 +33,37 @@ REFRESH_SEC = 90
 
 # ── ELO FETCH ─────────────────────────────────────────────────────────────────
 
-def fetch_elo_with_api_key(steam_id, api_key):
-    """Fetchuje Premier ELO - vise metoda redom."""
+GCPD_PATTERNS = [
+    r'Premier(?:[^<]{0,400}?)(\d{5,6})',
+    r'(\d{5,6})(?:[^<]{0,100}?)Premier',
+    r'"cs_rating"\s*:\s*(\d+)',
+    r'"premier_rating"\s*:\s*(\d+)',
+    r'"skillrating"\s*[>:,\s]+(\d{4,6})',
+    r'<td[^>]*>\s*(\d{5,6})\s*</td>',
+]
 
-    # Metod 1: Steam UserStats API
+def fetch_elo(steam_id, cookies):
+    """Fetchuje Premier ELO preko gcpd stranice koristeći Steam cookies."""
     try:
-        url  = (f"https://api.steampowered.com/ISteamUserStats/GetUserStatsForGame/v2/"
-                f"?appid=730&key={api_key}&steamid={steam_id}")
-        resp = requests.get(url, timeout=10)
-        data = resp.json()
-        stats = data.get("playerstats", {}).get("stats", [])
-        for s in stats:
-            name = s.get("name", "").lower()
-            val  = int(s.get("value", 0))
-            if ("premier" in name or "rating" in name) and 5000 < val < 40000:
-                print(f"[ELO] UserStats {steam_id}: {val}")
-                return val
-    except Exception as e:
-        print(f"[ELO] UserStats greska: {e}")
-
-    # Metod 2: gcpd stranica sa API kljucem kao autentifikacijom
-    # Koristimo API kljuc da dohvatimo sessionid indirektno
-    try:
-        # Dohvati korisnika iz baze da vidimo ima li sacuvane cookies
-        user = User.query.filter_by(steam_id=steam_id).first()
-        if user and user.steam_cookies:
-            cookies = json.loads(user.steam_cookies)
-            sess = requests.Session()
-            sess.headers.update({
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Accept-Language": "en-US,en;q=0.9",
-                "Referer": "https://steamcommunity.com/",
-            })
-            sess.cookies.update(cookies)
-            url  = f"https://steamcommunity.com/profiles/{steam_id}/gcpd/730/?tab=matchmaking"
-            resp = sess.get(url, timeout=15)
-            html = resp.text
-            patterns = [
-                r'Premier(?:[^<]{0,400}?)(\d{5,6})',
-                r'(\d{5,6})(?:[^<]{0,100}?)Premier',
-                r'"cs_rating"\s*:\s*(\d+)',
-                r'"premier_rating"\s*:\s*(\d+)',
-                r'"skillrating"\s*[>:,\s]+(\d{4,6})',
-                r'<td[^>]*>\s*(\d{5,6})\s*</td>',
-            ]
-            for p in patterns:
-                m = re.search(p, html, re.IGNORECASE | re.DOTALL)
-                if m:
-                    val = int(m.group(1))
-                    if 5000 < val < 40000:
-                        print(f"[ELO] gcpd {steam_id}: {val}")
-                        return val
+        sess = requests.Session()
+        sess.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://steamcommunity.com/",
+        })
+        sess.cookies.update(cookies)
+        url  = f"https://steamcommunity.com/profiles/{steam_id}/gcpd/730/?tab=matchmaking"
+        resp = sess.get(url, timeout=15)
+        html = resp.text
+        for p in GCPD_PATTERNS:
+            m = re.search(p, html, re.IGNORECASE | re.DOTALL)
+            if m:
+                val = int(m.group(1))
+                if 5000 < val < 40000:
+                    print(f"[ELO] gcpd {steam_id}: {val}")
+                    return val
     except Exception as e:
         print(f"[ELO] gcpd greska: {e}")
-
     return None
 
 
@@ -94,10 +71,11 @@ def refresh_all_users():
     """Background thread - osvezava ELO za sve korisnike svakih REFRESH_SEC sekundi."""
     while True:
         with app.app_context():
-            users = User.query.filter(User.steam_api_key.isnot(None)).all()
+            users = User.query.filter(User.steam_cookies.isnot(None)).all()
             for user in users:
                 try:
-                    elo = fetch_elo_with_api_key(user.steam_id, user.steam_api_key)
+                    cookies = json.loads(user.steam_cookies)
+                    elo = fetch_elo(user.steam_id, cookies)
                     if elo:
                         prev = user.current_elo
                         user.current_elo = elo
@@ -199,44 +177,9 @@ def api_me():
         "prev_elo":    user.prev_elo,
         "diff":        user.elo_diff,
         "last_update": user.last_update.strftime("%H:%M") if user.last_update else None,
-        "has_setup": bool(user.steam_api_key or user.steam_cookies),
+        "has_setup":   bool(user.steam_cookies),
         "overlay_url": f"/overlay/{user.steam_id}",
     })
-
-
-@app.route("/api/save-api-key", methods=["POST"])
-def save_api_key():
-    """Korisnik unosi svoj Steam API kljuc jednom."""
-    if "steam_id" not in session:
-        return jsonify({"error": "not_logged_in"}), 401
-
-    data    = request.get_json()
-    api_key = data.get("api_key", "").strip()
-
-    if not api_key or len(api_key) < 20:
-        return jsonify({"error": "Neispravan API kljuc"}), 400
-
-    # Verifikuj kljuc odmah
-    try:
-        test_url = f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={api_key}&steamids={session['steam_id']}"
-        r = requests.get(test_url, timeout=8)
-        if r.status_code == 403:
-            return jsonify({"error": "API kljuc nije ispravan"}), 400
-    except Exception:
-        return jsonify({"error": "Ne mogu da proverim API kljuc"}), 500
-
-    user = User.query.filter_by(steam_id=session["steam_id"]).first()
-    user.steam_api_key = api_key
-    db.session.commit()
-
-    # Odmah fetchuj ELO
-    elo = fetch_elo_with_api_key(user.steam_id, api_key)
-    if elo:
-        user.current_elo = elo
-        user.last_update = datetime.utcnow()
-        db.session.commit()
-
-    return jsonify({"success": True, "elo": elo})
 
 
 @app.route("/api/save-cookies", methods=["POST"])
@@ -261,36 +204,7 @@ def save_cookies():
 
     # Odmah fetchuj ELO
     cookies = {"sessionid": session_id, "steamLoginSecure": login_sec}
-    sess = requests.Session()
-    sess.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://steamcommunity.com/",
-    })
-    sess.cookies.update(cookies)
-    elo = None
-    try:
-        url  = f"https://steamcommunity.com/profiles/{session['steam_id']}/gcpd/730/?tab=matchmaking"
-        resp = sess.get(url, timeout=15)
-        html = resp.text
-        import re as _re
-        patterns = [
-            r'Premier(?:[^<]{0,400}?)(\d{5,6})',
-            r'(\d{5,6})(?:[^<]{0,100}?)Premier',
-            r'"cs_rating"\s*:\s*(\d+)',
-            r'"premier_rating"\s*:\s*(\d+)',
-            r'"skillrating"\s*[>:,\s]+(\d{4,6})',
-            r'<td[^>]*>\s*(\d{5,6})\s*</td>',
-        ]
-        for p in patterns:
-            m = _re.search(p, html, _re.IGNORECASE | _re.DOTALL)
-            if m:
-                val = int(m.group(1))
-                if 5000 < val < 40000:
-                    elo = val
-                    break
-    except Exception as e:
-        print(f"[cookies] Greska: {e}")
+    elo = fetch_elo(session["steam_id"], cookies)
 
     if elo:
         user.current_elo = elo
