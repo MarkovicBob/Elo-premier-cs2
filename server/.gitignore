@@ -8,3 +8,4 @@ flask_session/
 .DS_Store
 venv/
 env/
+.claude
