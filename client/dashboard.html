@@ -1,0 +1,1157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ELO.LIVE — Dashboard</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&family=Teko:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --gold: #c8a84b;
+        --gold-bright: #f0c860;
+        --gold-dim: #6b5a28;
+        --red: #e03030;
+        --green: #00cc66;
+        --bg: #080a0c;
+        --bg2: #0d1014;
+        --bg3: #111519;
+        --text: #e8e4d8;
+        --text-muted: #6b6860;
+        --border: rgba(200, 168, 75, 0.15);
+      }
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Rajdhani", sans-serif;
+        min-height: 100vh;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 0, 0, 0.06) 2px,
+          rgba(0, 0, 0, 0.06) 4px
+        );
+        pointer-events: none;
+        z-index: 1000;
+      }
+
+      nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 48px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(8, 10, 12, 0.9);
+        backdrop-filter: blur(12px);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+      .nav-logo {
+        font-family: "Teko", sans-serif;
+        font-size: 24px;
+        font-weight: 600;
+        letter-spacing: 4px;
+        color: var(--gold);
+        text-decoration: none;
+      }
+      .nav-right {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+      .nav-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 1px solid var(--gold-dim);
+      }
+      .nav-username {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .btn-logout {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--text-muted);
+        text-decoration: none;
+        text-transform: uppercase;
+        border: 1px solid var(--border);
+        padding: 6px 16px;
+        transition: all 0.2s;
+      }
+      .btn-logout:hover {
+        color: var(--red);
+        border-color: var(--red);
+      }
+
+      .main {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 64px 48px;
+      }
+
+      .page-tag {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 3px;
+        color: var(--gold-dim);
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+      .page-title {
+        font-family: "Teko", sans-serif;
+        font-size: 56px;
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: -1px;
+        margin-bottom: 48px;
+      }
+
+      /* ELO BIG CARD */
+      .elo-card {
+        border: 1px solid var(--border);
+        border-top: 3px solid var(--gold);
+        background: var(--bg2);
+        padding: 40px;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 32px;
+      }
+      .elo-label {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 3px;
+        color: var(--gold-dim);
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+      .elo-value {
+        font-family: "Teko", sans-serif;
+        font-size: 88px;
+        font-weight: 700;
+        color: var(--gold);
+        line-height: 1;
+        letter-spacing: -2px;
+      }
+      .elo-diff {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 14px;
+        margin-top: 6px;
+        display: none;
+      }
+      .elo-diff.pos {
+        color: var(--green);
+        display: block;
+      }
+      .elo-diff.neg {
+        color: var(--red);
+        display: block;
+      }
+      .elo-meta {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 10px;
+        color: var(--text-muted);
+        letter-spacing: 1px;
+        margin-top: 6px;
+      }
+      .status-dot {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-family: "Share Tech Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 2px;
+        color: var(--green);
+        text-transform: uppercase;
+      }
+      .status-dot::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--green);
+        animation: pulse 2s ease-in-out infinite;
+      }
+      .status-err {
+        color: var(--red);
+      }
+      .status-err::before {
+        background: var(--red);
+        animation: none;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.5;
+          transform: scale(0.8);
+        }
+      }
+
+      /* URL CARD */
+      .url-card {
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--green);
+        background: var(--bg2);
+        padding: 32px 40px;
+        margin-bottom: 24px;
+        display: none;
+      }
+      .url-title {
+        font-family: "Teko", sans-serif;
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+        color: var(--green);
+      }
+      .url-box {
+        display: flex;
+        align-items: center;
+        background: var(--bg3);
+        border: 1px solid var(--border);
+      }
+      .url-text {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 13px;
+        color: var(--text);
+        padding: 14px 20px;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .btn-copy {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--gold);
+        text-transform: uppercase;
+        background: transparent;
+        border: none;
+        border-left: 1px solid var(--border);
+        padding: 14px 20px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .btn-copy:hover {
+        background: var(--bg);
+      }
+      .btn-copy.copied {
+        color: var(--green);
+      }
+      .url-note {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-top: 12px;
+        line-height: 1.7;
+      }
+      .url-note strong {
+        color: var(--text);
+      }
+
+      /* SETUP CARD */
+      .setup-card {
+        border: 1px solid var(--border);
+        background: var(--bg2);
+        padding: 40px;
+        margin-bottom: 24px;
+      }
+      .setup-title {
+        font-family: "Teko", sans-serif;
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
+      }
+      .setup-desc {
+        font-size: 15px;
+        color: var(--text-muted);
+        margin-bottom: 28px;
+        line-height: 1.7;
+      }
+
+      .steps-mini {
+        display: flex;
+        gap: 0;
+        margin-bottom: 28px;
+        border: 1px solid var(--border);
+      }
+      .step-mini {
+        flex: 1;
+        padding: 16px 20px;
+        border-right: 1px solid var(--border);
+      }
+      .step-mini:last-child {
+        border-right: none;
+      }
+      .step-mini-num {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 10px;
+        color: var(--gold-dim);
+        letter-spacing: 2px;
+        margin-bottom: 4px;
+      }
+      .step-mini-text {
+        font-size: 14px;
+        color: var(--text);
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 16px;
+      }
+      .form-label {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--gold-dim);
+        text-transform: uppercase;
+      }
+      .form-input {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-family: "Share Tech Mono", monospace;
+        font-size: 13px;
+        padding: 12px 16px;
+        outline: none;
+        width: 100%;
+        transition: border-color 0.2s;
+      }
+      .form-input:focus {
+        border-color: var(--gold-dim);
+      }
+      .form-hint {
+        font-size: 12px;
+        color: var(--text-muted);
+        line-height: 1.6;
+      }
+      .form-hint a {
+        color: var(--gold);
+        text-decoration: none;
+      }
+      .form-hint a:hover {
+        text-decoration: underline;
+      }
+
+      .btn-save {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: transparent;
+        border: 1px solid var(--gold);
+        color: var(--gold);
+        font-family: "Teko", sans-serif;
+        font-size: 18px;
+        font-weight: 500;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        padding: 12px 32px;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        transition: color 0.3s;
+        margin-top: 8px;
+      }
+      .btn-save::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--gold);
+        transform: translateX(-101%);
+        transition: transform 0.3s;
+      }
+      .btn-save:hover::before {
+        transform: translateX(0);
+      }
+      .btn-save:hover {
+        color: var(--bg);
+      }
+      .btn-save span {
+        position: relative;
+        z-index: 1;
+      }
+
+      .msg {
+        padding: 12px 16px;
+        font-family: "Share Tech Mono", monospace;
+        font-size: 12px;
+        letter-spacing: 1px;
+        display: none;
+        margin-top: 12px;
+      }
+      .msg.success {
+        background: rgba(0, 200, 100, 0.1);
+        border: 1px solid rgba(0, 200, 100, 0.3);
+        color: var(--green);
+      }
+      .msg.error {
+        background: rgba(220, 48, 48, 0.1);
+        border: 1px solid rgba(220, 48, 48, 0.3);
+        color: var(--red);
+      }
+
+      /* TUTORIAL */
+      .tutorial-wrap {
+        margin: 24px 0;
+      }
+      .tutorial-title {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--gold-dim);
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+
+      .tutorial-screen {
+        position: relative;
+        background: #1e1e2e;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        overflow: hidden;
+        height: 260px;
+      }
+
+      .chrome-bar {
+        background: #2a2a3e;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      .chrome-dots {
+        display: flex;
+        gap: 5px;
+      }
+      .chrome-dots span {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.15);
+      }
+      .chrome-url {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.3);
+        background: rgba(0, 0, 0, 0.3);
+        padding: 3px 12px;
+        border-radius: 10px;
+      }
+
+      .chrome-body {
+        display: flex;
+        height: 228px;
+      }
+
+      .devtools {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      .devtools-tabs {
+        display: flex;
+        gap: 0;
+        background: #252535;
+        padding: 0 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      .devtools-tabs span {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 9px;
+        color: rgba(255, 255, 255, 0.3);
+        padding: 6px 10px;
+        cursor: default;
+      }
+      .dt-active {
+        color: var(--gold) !important;
+        border-bottom: 2px solid var(--gold);
+      }
+
+      .devtools-body {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+      .dt-sidebar {
+        width: 140px;
+        background: #1a1a2a;
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 8px 0;
+        flex-shrink: 0;
+      }
+      .dt-item {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 9px;
+        color: rgba(255, 255, 255, 0.3);
+        padding: 4px 12px;
+      }
+      .dt-open {
+        color: rgba(255, 255, 255, 0.6) !important;
+      }
+      .dt-sub {
+        padding-left: 22px !important;
+      }
+      .dt-highlight {
+        color: var(--gold) !important;
+        background: rgba(200, 168, 75, 0.1);
+      }
+
+      .dt-content {
+        flex: 1;
+        overflow: hidden;
+      }
+      .dt-header {
+        display: flex;
+        background: #252535;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      .dt-col {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 9px;
+        padding: 4px 8px;
+        flex: 1;
+      }
+      .dt-header .dt-col {
+        color: rgba(255, 255, 255, 0.4);
+      }
+      .dt-row {
+        display: flex;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        transition: background 0.3s;
+      }
+      .dt-row-active {
+        background: rgba(200, 168, 75, 0.15) !important;
+      }
+      .dt-name {
+        color: rgba(255, 255, 255, 0.7);
+      }
+      .dt-val {
+        color: rgba(255, 255, 255, 0.4);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .dt-value-panel {
+        background: #1a1a2a;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 6px 10px;
+      }
+      .dt-value-label {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 8px;
+        color: rgba(255, 255, 255, 0.3);
+        margin-bottom: 4px;
+      }
+      .dt-show-decoded {
+        color: var(--gold);
+        margin-left: 8px;
+      }
+      .dt-value-text {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 9px;
+        color: var(--gold);
+        word-break: break-all;
+        line-height: 1.4;
+        max-height: 36px;
+        overflow: hidden;
+      }
+
+      .tut-step-badge {
+        position: absolute;
+        top: 40px;
+        right: 8px;
+        font-family: "Share Tech Mono", monospace;
+        font-size: 9px;
+        letter-spacing: 1px;
+        background: var(--gold);
+        color: var(--bg);
+        padding: 3px 8px;
+        border-radius: 2px;
+      }
+
+      .tut-cursor {
+        position: absolute;
+        width: 12px;
+        height: 18px;
+        pointer-events: none;
+        background: rgba(255, 255, 255, 0.8);
+        clip-path: polygon(
+          0 0,
+          100% 40%,
+          40% 40%,
+          40% 100%,
+          30% 100%,
+          30% 40%,
+          0 40%
+        );
+        transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 10;
+      }
+
+      .tut-highlight {
+        position: absolute;
+        border: 2px solid var(--gold);
+        border-radius: 3px;
+        pointer-events: none;
+        transition: all 0.5s ease;
+        opacity: 0;
+        z-index: 9;
+        box-shadow: 0 0 12px rgba(200, 168, 75, 0.3);
+      }
+
+      .tut-caption {
+        font-family: "Rajdhani", sans-serif;
+        font-size: 14px;
+        color: var(--text-muted);
+        text-align: center;
+        margin-top: 10px;
+        min-height: 22px;
+        transition: opacity 0.3s;
+      }
+      .tut-caption kbd {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 11px;
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        padding: 1px 6px;
+        border-radius: 3px;
+        color: var(--gold);
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <a href="/" class="nav-logo">ELO.LIVE</a>
+      <div class="nav-right">
+        <img id="nav-avatar" class="nav-avatar" src="" alt="" />
+        <span id="nav-username" class="nav-username">loading...</span>
+        <a href="/logout" class="btn-logout">Logout</a>
+      </div>
+    </nav>
+
+    <div class="main">
+      <div class="page-tag">// DASHBOARD</div>
+      <h1 class="page-title">Tvoj Premier ELO</h1>
+
+      <!-- ELO CARD -->
+      <div class="elo-card">
+        <div style="flex: 1">
+          <div class="elo-label">Current Premier Rating</div>
+          <div class="elo-value" id="elo-display">---</div>
+          <div class="elo-diff" id="elo-diff"></div>
+          <div class="elo-meta" id="elo-meta">
+            Osvežava se automatski svakih 90s
+          </div>
+        </div>
+        <div id="status-wrap">
+          <div class="status-dot" id="status-indicator">LIVE</div>
+        </div>
+      </div>
+
+      <!-- OVERLAY URL CARD -->
+      <div class="url-card" id="url-card">
+        <div class="url-title">// TVOJ BROWSER SOURCE URL</div>
+        <div class="url-box">
+          <div class="url-text" id="overlay-url-text"></div>
+          <button class="btn-copy" id="btn-copy" onclick="copyUrl()">
+            COPY
+          </button>
+        </div>
+        <div class="url-note">
+          Dodaj ovaj URL u <strong>TikTok Live Studio</strong>,
+          <strong>Streamlabs</strong> ili <strong>OBS</strong> kao Browser
+          Source.<br />
+          Preporučena veličina: <strong>280 × 75px</strong>
+        </div>
+      </div>
+
+      <!-- SETUP CARD -->
+      <div class="setup-card" id="setup-card">
+        <div class="setup-title">Aktiviraj ELO tracking</div>
+        <div class="setup-desc">
+          Izaberi jedan od dva načina — oba rade jednako dobro.
+        </div>
+
+        <!-- TAB SWITCHER -->
+        <div
+          style="
+            display: flex;
+            gap: 0;
+            margin-bottom: 28px;
+            border: 1px solid var(--border);
+          "
+        >
+          <button
+            onclick="showTab('api')"
+            id="tab-api"
+            style="
+              flex: 1;
+              padding: 12px;
+              background: var(--gold);
+              color: var(--bg);
+              font-family: &quot;Share Tech Mono&quot;, monospace;
+              font-size: 11px;
+              letter-spacing: 2px;
+              border: none;
+              cursor: pointer;
+              text-transform: uppercase;
+            "
+          >
+            Steam API Ključ
+          </button>
+          <button
+            onclick="showTab('cookies')"
+            id="tab-cookies"
+            style="
+              flex: 1;
+              padding: 12px;
+              background: transparent;
+              color: var(--text-muted);
+              font-family: &quot;Share Tech Mono&quot;, monospace;
+              font-size: 11px;
+              letter-spacing: 2px;
+              border: none;
+              cursor: pointer;
+              text-transform: uppercase;
+            "
+          >
+            Session Cookies
+          </button>
+        </div>
+
+        <!-- API KEY TAB -->
+        <div id="panel-api">
+          <div class="steps-mini">
+            <div class="step-mini">
+              <div class="step-mini-num">01 //</div>
+              <div class="step-mini-text">
+                Idi na steamcommunity.com/dev/apikey
+              </div>
+            </div>
+            <div class="step-mini">
+              <div class="step-mini-num">02 //</div>
+              <div class="step-mini-text">Generiši besplatan API ključ</div>
+            </div>
+            <div class="step-mini">
+              <div class="step-mini-num">03 //</div>
+              <div class="step-mini-text">Nalepi dole i klikni Sačuvaj</div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Steam Web API ključ</label>
+            <input
+              class="form-input"
+              id="input-apikey"
+              type="text"
+              placeholder="npr. A1B2C3D4E5F6..."
+            />
+            <div class="form-hint">
+              Uzmi ključ na
+              <a href="https://steamcommunity.com/dev/apikey" target="_blank"
+                >steamcommunity.com/dev/apikey</a
+              >
+              — besplatno, 30 sekundi.
+            </div>
+          </div>
+          <button class="btn-save" onclick="saveApiKey()">
+            <span>Sačuvaj API ključ</span>
+          </button>
+        </div>
+
+        <!-- COOKIES TAB -->
+        <div id="panel-cookies" style="display: none">
+          <div class="steps-mini">
+            <div class="step-mini">
+              <div class="step-mini-num">01 //</div>
+              <div class="step-mini-text">
+                Otvori steamcommunity.com u Chrome
+              </div>
+            </div>
+            <div class="step-mini">
+              <div class="step-mini-num">02 //</div>
+              <div class="step-mini-text">F12 → Application → Cookies</div>
+            </div>
+            <div class="step-mini">
+              <div class="step-mini-num">03 //</div>
+              <div class="step-mini-text">
+                Kopiraj sessionid i steamLoginSecure
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">sessionid</label>
+            <input
+              class="form-input"
+              id="input-sessionid"
+              type="text"
+              placeholder="npr. 8d3af9c0bfd508070f3a0aea"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">steamLoginSecure</label>
+            <input
+              class="form-input"
+              id="input-loginsecure"
+              type="text"
+              placeholder="76561198...%7C%7C..."
+            />
+          </div>
+          <!-- ANIMATED TUTORIAL -->
+          <div class="tutorial-wrap">
+            <div class="tutorial-title">// KAO OVO:</div>
+            <div class="tutorial-screen">
+              <!-- Fake Chrome window -->
+              <div class="chrome-bar">
+                <div class="chrome-dots">
+                  <span></span><span></span><span></span>
+                </div>
+                <div class="chrome-url">steamcommunity.com</div>
+              </div>
+              <div class="chrome-body">
+                <!-- Fake DevTools -->
+                <div class="devtools">
+                  <div class="devtools-tabs">
+                    <span>Elements</span><span>Console</span
+                    ><span class="dt-active">Application</span
+                    ><span>Network</span>
+                  </div>
+                  <div class="devtools-body">
+                    <div class="dt-sidebar">
+                      <div class="dt-item">Manifest</div>
+                      <div class="dt-item">Storage</div>
+                      <div class="dt-item dt-open">&#9660; Cookies</div>
+                      <div
+                        class="dt-item dt-sub dt-highlight"
+                        id="tut-steam-link"
+                      >
+                        https://steamcommunity...
+                      </div>
+                    </div>
+                    <div class="dt-content">
+                      <div class="dt-header">
+                        <span class="dt-col">Name</span>
+                        <span class="dt-col">Value</span>
+                      </div>
+                      <div class="dt-row" id="tut-row-session">
+                        <span class="dt-col dt-name">sessionid</span>
+                        <span class="dt-col dt-val" id="tut-val-session"
+                          >8d3af9c0bf...</span
+                        >
+                      </div>
+                      <div class="dt-row dt-row-active" id="tut-row-login">
+                        <span class="dt-col dt-name">steamLoginSecure</span>
+                        <span class="dt-col dt-val" id="tut-val-login"
+                          >76561198...</span
+                        >
+                      </div>
+                      <div class="dt-row" id="tut-row-country">
+                        <span class="dt-col dt-name">steamCountry</span>
+                        <span class="dt-col dt-val">RS%7...</span>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Bottom value panel -->
+                  <div class="dt-value-panel" id="tut-value-panel">
+                    <div class="dt-value-label">
+                      Cookie Value
+                      <span class="dt-show-decoded">Show URL-decoded</span>
+                    </div>
+                    <div class="dt-value-text" id="tut-full-value">
+                      76561198858083261%7C%7CeyAidHlw...
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- Step indicator -->
+              <div class="tut-step-badge" id="tut-step-badge">KORAK 1 / 4</div>
+              <!-- Cursor -->
+              <div class="tut-cursor" id="tut-cursor"></div>
+              <!-- Highlight box -->
+              <div class="tut-highlight" id="tut-highlight"></div>
+            </div>
+            <div class="tut-caption" id="tut-caption">
+              Pritisni <kbd>F12</kbd> da otvoriš DevTools
+            </div>
+          </div>
+
+          <button class="btn-save" onclick="saveCookies()">
+            <span>Sačuvaj cookies</span>
+          </button>
+        </div>
+
+        <div class="msg" id="msg"></div>
+      </div>
+    </div>
+
+    <script>
+      let overlayUrl = "";
+
+      async function loadUser() {
+        try {
+          const r = await fetch("/api/me");
+          if (r.status === 401) {
+            window.location = "/";
+            return;
+          }
+          const d = await r.json();
+
+          document.getElementById("nav-avatar").src = d.avatar || "";
+          document.getElementById("nav-username").textContent =
+            d.username || "";
+
+          // ELO
+          if (d.elo) {
+            document.getElementById("elo-display").textContent =
+              d.elo.toLocaleString("en-US");
+            document.getElementById("elo-meta").textContent =
+              "Poslednje osvežavanje: " + (d.last_update || "--:--");
+
+            if (d.diff && d.diff !== 0) {
+              const el = document.getElementById("elo-diff");
+              el.textContent =
+                (d.diff > 0 ? "+" : "") + d.diff + " od prošle provere";
+              el.className = "elo-diff " + (d.diff > 0 ? "pos" : "neg");
+            }
+          }
+
+          // Overlay URL
+          overlayUrl = window.location.origin.replace("127.0.0.1", "localhost") + "/overlay/" + d.steam_id;
+          document.getElementById("overlay-url-text").textContent = overlayUrl;
+          document.getElementById("url-card").style.display = "block";
+
+          // Sakrij setup ako vec ima API kljuc
+          if (d.has_setup) {
+            document.getElementById("setup-card").style.display = "none";
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function saveApiKey() {
+        const api_key = document.getElementById("input-apikey").value.trim();
+        if (!api_key) {
+          showMsg("Unesi API ključ!", "error");
+          return;
+        }
+
+        try {
+          const r = await fetch("/api/save-api-key", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ api_key }),
+          });
+          const d = await r.json();
+
+          if (d.success) {
+            showMsg(
+              "Uspešno! ELO: " +
+                (d.elo ? d.elo.toLocaleString("en-US") : "fetchuje se..."),
+              "success",
+            );
+            setTimeout(loadUser, 1500);
+          } else {
+            showMsg("Greška: " + (d.error || "nepoznata"), "error");
+          }
+        } catch (e) {
+          showMsg("Mrežna greška.", "error");
+        }
+      }
+
+      function showMsg(text, type) {
+        const el = document.getElementById("msg");
+        el.textContent = text;
+        el.className = "msg " + type;
+        el.style.display = "block";
+      }
+
+      function copyUrl() {
+        navigator.clipboard.writeText(overlayUrl).then(() => {
+          const btn = document.getElementById("btn-copy");
+          btn.textContent = "COPIED!";
+          btn.classList.add("copied");
+          setTimeout(() => {
+            btn.textContent = "COPY";
+            btn.classList.remove("copied");
+          }, 2000);
+        });
+      }
+
+      // ── TUTORIAL ANIMATION ───────────────────────────────────────────────────────
+      const tutSteps = [
+        {
+          badge: "KORAK 1 / 4",
+          caption: "Pritisni <kbd>F12</kbd> da otvoriš Chrome DevTools",
+          cursor: { top: "80px", left: "50%" },
+          highlight: { display: "none" },
+          activeRow: null,
+          showPanel: false,
+        },
+        {
+          badge: "KORAK 2 / 4",
+          caption:
+            "Klikni <strong>Application</strong> tab, zatim <strong>Cookies → steamcommunity</strong>",
+          cursor: { top: "52px", left: "190px" },
+          highlight: {
+            top: "45px",
+            left: "8px",
+            width: "100px",
+            height: "16px",
+            opacity: "1",
+            display: "block",
+          },
+          activeRow: null,
+          showPanel: false,
+        },
+        {
+          badge: "KORAK 3 / 4",
+          caption: "Pronađi <strong>sessionid</strong> i kopiraj vrednost",
+          cursor: { top: "108px", left: "180px" },
+          highlight: {
+            top: "103px",
+            left: "0px",
+            width: "100%",
+            height: "18px",
+            opacity: "1",
+            display: "block",
+          },
+          activeRow: "session",
+          showPanel: false,
+        },
+        {
+          badge: "KORAK 4 / 4",
+          caption:
+            "Pronađi <strong>steamLoginSecure</strong> — klikni da vidiš punu vrednost dole",
+          cursor: { top: "125px", left: "180px" },
+          highlight: {
+            top: "121px",
+            left: "0px",
+            width: "100%",
+            height: "18px",
+            opacity: "1",
+            display: "block",
+          },
+          activeRow: "login",
+          showPanel: true,
+        },
+      ];
+
+      let tutIdx = 0;
+      function runTutorial() {
+        const step = tutSteps[tutIdx];
+        const badge = document.getElementById("tut-step-badge");
+        const cursor = document.getElementById("tut-cursor");
+        const highlight = document.getElementById("tut-highlight");
+        const caption = document.getElementById("tut-caption");
+        const panel = document.getElementById("tut-value-panel");
+        const rowSession = document.getElementById("tut-row-session");
+        const rowLogin = document.getElementById("tut-row-login");
+
+        if (!badge) return;
+
+        badge.textContent = step.badge;
+        caption.innerHTML = step.caption;
+
+        cursor.style.top = step.cursor.top;
+        cursor.style.left = step.cursor.left;
+
+        Object.assign(highlight.style, step.highlight);
+
+        rowSession.className =
+          "dt-row" + (step.activeRow === "session" ? " dt-row-active" : "");
+        rowLogin.className =
+          "dt-row" + (step.activeRow === "login" ? " dt-row-active" : "");
+
+        panel.style.opacity = step.showPanel ? "1" : "0.3";
+
+        tutIdx = (tutIdx + 1) % tutSteps.length;
+      }
+
+      setInterval(runTutorial, 2500);
+      runTutorial();
+      // ─────────────────────────────────────────────────────────────────────────────
+
+      function showTab(tab) {
+        document.getElementById("panel-api").style.display =
+          tab === "api" ? "block" : "none";
+        document.getElementById("panel-cookies").style.display =
+          tab === "cookies" ? "block" : "none";
+        document.getElementById("tab-api").style.background =
+          tab === "api" ? "var(--gold)" : "transparent";
+        document.getElementById("tab-api").style.color =
+          tab === "api" ? "var(--bg)" : "var(--text-muted)";
+        document.getElementById("tab-cookies").style.background =
+          tab === "cookies" ? "var(--gold)" : "transparent";
+        document.getElementById("tab-cookies").style.color =
+          tab === "cookies" ? "var(--bg)" : "var(--text-muted)";
+      }
+
+      async function saveCookies() {
+        const sessionid = document
+          .getElementById("input-sessionid")
+          .value.trim();
+        const steamLoginSecure = document
+          .getElementById("input-loginsecure")
+          .value.trim();
+        if (!sessionid || !steamLoginSecure) {
+          showMsg("Popuni oba polja!", "error");
+          return;
+        }
+        try {
+          const r = await fetch("/api/save-cookies", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionid, steamLoginSecure }),
+          });
+          const d = await r.json();
+          if (d.success) {
+            showMsg(
+              "Uspešno! ELO: " +
+                (d.elo ? d.elo.toLocaleString("en-US") : "fetchuje se..."),
+              "success",
+            );
+            setTimeout(loadUser, 1500);
+          } else {
+            showMsg("Greška: " + (d.error || "nepoznata"), "error");
+          }
+        } catch (e) {
+          showMsg("Mrežna greška.", "error");
+        }
+      }
+
+      showTab("cookies");
+      loadUser();
+      setInterval(loadUser, 30000);
+    </script>
+  </body>
+</html>

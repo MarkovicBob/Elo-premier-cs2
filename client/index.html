@@ -1,0 +1,1190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ELO.LIVE — CS2 Premier Overlay</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&family=Teko:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --gold: #c8a84b;
+        --gold-bright: #f0c860;
+        --gold-dim: #6b5a28;
+        --red: #e03030;
+        --bg: #080a0c;
+        --bg2: #0d1014;
+        --bg3: #111519;
+        --text: #e8e4d8;
+        --text-muted: #6b6860;
+        --border: rgba(200, 168, 75, 0.15);
+      }
+
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Rajdhani", sans-serif;
+        min-height: 100vh;
+        overflow-x: hidden;
+        cursor: crosshair;
+      }
+
+      /* ── SCANLINES OVERLAY ── */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 0, 0, 0.08) 2px,
+          rgba(0, 0, 0, 0.08) 4px
+        );
+        pointer-events: none;
+        z-index: 1000;
+      }
+
+      /* ── NOISE TEXTURE ── */
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        opacity: 0.025;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        pointer-events: none;
+        z-index: 999;
+      }
+
+      /* ── NAV ── */
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 48px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(8, 10, 12, 0.85);
+        backdrop-filter: blur(12px);
+      }
+
+      .nav-logo {
+        font-family: "Teko", sans-serif;
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: 4px;
+        color: var(--gold);
+        text-decoration: none;
+      }
+
+      .nav-logo span {
+        color: var(--text-muted);
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 32px;
+        list-style: none;
+      }
+
+      .nav-links a {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 2px;
+        color: var(--text-muted);
+        text-decoration: none;
+        text-transform: uppercase;
+        transition: color 0.2s;
+      }
+
+      .nav-links a:hover {
+        color: var(--gold);
+      }
+
+      /* ── HERO ── */
+      .hero {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        padding: 120px 48px 80px;
+        overflow: hidden;
+      }
+
+      /* Grid background */
+      .hero-grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(200, 168, 75, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(200, 168, 75, 0.04) 1px, transparent 1px);
+        background-size: 60px 60px;
+        mask-image: radial-gradient(
+          ellipse 80% 80% at 50% 50%,
+          black 30%,
+          transparent 100%
+        );
+      }
+
+      /* Corner decorations */
+      .corner {
+        position: absolute;
+        width: 60px;
+        height: 60px;
+        opacity: 0.4;
+      }
+      .corner-tl {
+        top: 80px;
+        left: 48px;
+        border-top: 1px solid var(--gold);
+        border-left: 1px solid var(--gold);
+      }
+      .corner-tr {
+        top: 80px;
+        right: 48px;
+        border-top: 1px solid var(--gold);
+        border-right: 1px solid var(--gold);
+      }
+      .corner-bl {
+        bottom: 80px;
+        left: 48px;
+        border-bottom: 1px solid var(--gold);
+        border-left: 1px solid var(--gold);
+      }
+      .corner-br {
+        bottom: 80px;
+        right: 48px;
+        border-bottom: 1px solid var(--gold);
+        border-right: 1px solid var(--gold);
+      }
+
+      /* Glow orbs */
+      .glow-orb {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(100px);
+        pointer-events: none;
+      }
+      .glow-orb-1 {
+        width: 500px;
+        height: 500px;
+        background: rgba(200, 168, 75, 0.06);
+        top: -100px;
+        left: -100px;
+      }
+      .glow-orb-2 {
+        width: 400px;
+        height: 400px;
+        background: rgba(224, 48, 48, 0.05);
+        bottom: -50px;
+        right: -50px;
+      }
+
+      .hero-content {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        max-width: 900px;
+      }
+
+      .hero-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-family: "Share Tech Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 3px;
+        color: var(--gold);
+        text-transform: uppercase;
+        margin-bottom: 32px;
+        opacity: 0;
+        animation: fadeUp 0.8s ease 0.2s forwards;
+      }
+
+      .hero-tag::before,
+      .hero-tag::after {
+        content: "";
+        width: 40px;
+        height: 1px;
+        background: var(--gold-dim);
+      }
+
+      .hero-title {
+        font-family: "Teko", sans-serif;
+        font-size: clamp(72px, 12vw, 160px);
+        font-weight: 700;
+        line-height: 0.9;
+        letter-spacing: -2px;
+        margin-bottom: 8px;
+        opacity: 0;
+        animation: fadeUp 0.8s ease 0.4s forwards;
+      }
+
+      .hero-title .line1 {
+        color: var(--text);
+        display: block;
+      }
+      .hero-title .line2 {
+        color: transparent;
+        -webkit-text-stroke: 1px var(--gold-dim);
+        display: block;
+      }
+      .hero-title .line3 {
+        color: var(--gold);
+        display: block;
+        position: relative;
+      }
+
+      /* Glitch effect on line3 */
+      .hero-title .line3::before,
+      .hero-title .line3::after {
+        content: "OVERLAY";
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100%;
+      }
+      .hero-title .line3::before {
+        color: var(--red);
+        clip-path: polygon(0 30%, 100% 30%, 100% 50%, 0 50%);
+        animation: glitch1 4s infinite;
+        opacity: 0.6;
+      }
+      .hero-title .line3::after {
+        color: #4488ff;
+        clip-path: polygon(0 60%, 100% 60%, 100% 80%, 0 80%);
+        animation: glitch2 4s infinite;
+        opacity: 0.4;
+      }
+
+      .hero-sub {
+        font-size: 18px;
+        font-weight: 400;
+        color: var(--text-muted);
+        letter-spacing: 1px;
+        margin-bottom: 56px;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.6;
+        opacity: 0;
+        animation: fadeUp 0.8s ease 0.6s forwards;
+      }
+
+      .hero-sub strong {
+        color: var(--text);
+        font-weight: 500;
+      }
+
+      /* ── STEAM LOGIN BTN ── */
+      .btn-steam {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        background: transparent;
+        border: 1px solid var(--gold);
+        color: var(--gold);
+        font-family: "Teko", sans-serif;
+        font-size: 22px;
+        font-weight: 500;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+        text-decoration: none;
+        padding: 16px 48px;
+        position: relative;
+        overflow: hidden;
+        transition: color 0.3s;
+        cursor: crosshair;
+        opacity: 0;
+        animation: fadeUp 0.8s ease 0.8s forwards;
+      }
+
+      .btn-steam::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--gold);
+        transform: translateX(-101%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .btn-steam:hover::before {
+        transform: translateX(0);
+      }
+      .btn-steam:hover {
+        color: var(--bg);
+      }
+
+      .btn-steam svg {
+        position: relative;
+        z-index: 1;
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+      }
+
+      .btn-steam span {
+        position: relative;
+        z-index: 1;
+      }
+
+      /* Scan line animation on btn */
+      .btn-steam::after {
+        content: "";
+        position: absolute;
+        top: -100%;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: rgba(200, 168, 75, 0.6);
+        animation: btnScan 3s ease-in-out infinite;
+      }
+
+      /* ── STATS BAR ── */
+      .stats-bar {
+        display: flex;
+        gap: 0;
+        margin-top: 80px;
+        border: 1px solid var(--border);
+        opacity: 0;
+        animation: fadeUp 0.8s ease 1s forwards;
+      }
+
+      .stat-item {
+        flex: 1;
+        padding: 20px 32px;
+        text-align: center;
+        border-right: 1px solid var(--border);
+        position: relative;
+      }
+
+      .stat-item:last-child {
+        border-right: none;
+      }
+
+      .stat-num {
+        font-family: "Teko", sans-serif;
+        font-size: 36px;
+        font-weight: 600;
+        color: var(--gold);
+        line-height: 1;
+        display: block;
+      }
+
+      .stat-label {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        display: block;
+        margin-top: 4px;
+      }
+
+      /* ── HOW IT WORKS ── */
+      .section {
+        padding: 120px 48px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .section-tag {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 3px;
+        color: var(--gold-dim);
+        text-transform: uppercase;
+        margin-bottom: 16px;
+      }
+
+      .section-title {
+        font-family: "Teko", sans-serif;
+        font-size: 64px;
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: -1px;
+        margin-bottom: 64px;
+      }
+
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        background: var(--border);
+      }
+
+      .step {
+        background: var(--bg);
+        padding: 48px 40px;
+        position: relative;
+        overflow: hidden;
+        transition: background 0.3s;
+      }
+
+      .step:hover {
+        background: var(--bg3);
+      }
+
+      .step::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--gold);
+        transform: scaleX(0);
+        transform-origin: left;
+        transition: transform 0.4s ease;
+      }
+
+      .step:hover::before {
+        transform: scaleX(1);
+      }
+
+      .step-num {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 2px;
+        color: var(--gold-dim);
+        margin-bottom: 24px;
+        display: block;
+      }
+
+      .step-icon {
+        width: 48px;
+        height: 48px;
+        margin-bottom: 24px;
+        color: var(--gold);
+      }
+
+      .step-title {
+        font-family: "Teko", sans-serif;
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        margin-bottom: 12px;
+        color: var(--text);
+      }
+
+      .step-desc {
+        font-size: 15px;
+        color: var(--text-muted);
+        line-height: 1.7;
+        font-weight: 400;
+      }
+
+      /* ── OVERLAY PREVIEW ── */
+      .preview-section {
+        background: var(--bg2);
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        padding: 120px 48px;
+      }
+
+      .preview-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 80px;
+        align-items: center;
+      }
+
+      .preview-screen {
+        position: relative;
+        aspect-ratio: 16/9;
+        background: #0a0f0a;
+        border: 1px solid var(--border);
+        overflow: hidden;
+      }
+
+      /* Fake game screenshot bg */
+      .preview-screen::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(
+            ellipse at 30% 60%,
+            rgba(20, 60, 20, 0.8) 0%,
+            transparent 60%
+          ),
+          radial-gradient(
+            ellipse at 70% 40%,
+            rgba(10, 30, 50, 0.6) 0%,
+            transparent 60%
+          ),
+          linear-gradient(160deg, #0a1a0a 0%, #050d1a 100%);
+      }
+
+      /* Fake smoke/map elements */
+      .preview-screen::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(
+          45deg,
+          transparent,
+          transparent 40px,
+          rgba(255, 255, 255, 0.01) 40px,
+          rgba(255, 255, 255, 0.01) 41px
+        );
+      }
+
+      .overlay-widget {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(8, 8, 12, 0.88);
+        border: 1px solid rgba(200, 168, 75, 0.3);
+        border-left: 3px solid var(--gold);
+        border-radius: 4px;
+        padding: 8px 14px 8px 11px;
+        z-index: 10;
+      }
+
+      .widget-icon {
+        width: 22px;
+        height: 22px;
+        flex-shrink: 0;
+      }
+
+      .widget-divider {
+        width: 1px;
+        height: 24px;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .widget-label {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 8px;
+        letter-spacing: 2px;
+        color: var(--gold);
+        text-transform: uppercase;
+        margin-bottom: 2px;
+      }
+
+      .widget-elo {
+        font-family: "Teko", sans-serif;
+        font-size: 26px;
+        color: #fff;
+        line-height: 1;
+        letter-spacing: 1px;
+        animation: eloCount 3s ease-in-out infinite alternate;
+      }
+
+      .widget-badge {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 2px;
+        background: rgba(0, 200, 100, 0.18);
+        color: #00cc66;
+        animation: badgePulse 3s ease-in-out infinite;
+      }
+
+      /* Fake HUD elements */
+      .fake-hud-top {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 200px;
+        height: 32px;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        font-family: "Share Tech Mono", monospace;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.5);
+      }
+
+      .fake-hud-score {
+        color: #fff;
+        font-size: 14px;
+      }
+
+      .fake-hud-bottom {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 48px;
+        background: rgba(0, 0, 0, 0.5);
+      }
+
+      .fake-crosshair {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 12px;
+        height: 12px;
+        opacity: 0.6;
+      }
+
+      .fake-crosshair::before,
+      .fake-crosshair::after {
+        content: "";
+        position: absolute;
+        background: #0f0;
+      }
+      .fake-crosshair::before {
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 1px;
+        transform: translateY(-50%);
+      }
+      .fake-crosshair::after {
+        left: 50%;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        transform: translateX(-50%);
+      }
+
+      .preview-text h3 {
+        font-family: "Teko", sans-serif;
+        font-size: 48px;
+        font-weight: 600;
+        line-height: 1.1;
+        margin-bottom: 20px;
+        letter-spacing: -0.5px;
+      }
+
+      .preview-text p {
+        font-size: 16px;
+        color: var(--text-muted);
+        line-height: 1.8;
+        margin-bottom: 32px;
+      }
+
+      .url-example {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 12px;
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        padding: 14px 20px;
+        color: var(--gold);
+        letter-spacing: 1px;
+        border-left: 3px solid var(--gold);
+      }
+
+      /* ── CTA BOTTOM ── */
+      .cta-section {
+        padding: 120px 48px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .cta-section::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 600px;
+        height: 600px;
+        background: radial-gradient(
+          circle,
+          rgba(200, 168, 75, 0.05) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+
+      .cta-title {
+        font-family: "Teko", sans-serif;
+        font-size: clamp(48px, 8vw, 100px);
+        font-weight: 700;
+        line-height: 0.95;
+        letter-spacing: -1px;
+        margin-bottom: 24px;
+      }
+
+      .cta-title em {
+        font-style: normal;
+        color: var(--gold);
+      }
+
+      .cta-sub {
+        font-size: 16px;
+        color: var(--text-muted);
+        margin-bottom: 48px;
+        letter-spacing: 1px;
+      }
+
+      /* ── FOOTER ── */
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 32px 48px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .footer-logo {
+        font-family: "Teko", sans-serif;
+        font-size: 20px;
+        letter-spacing: 3px;
+        color: var(--gold-dim);
+      }
+
+      .footer-text {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+      }
+
+      /* ── TICKER ── */
+      .ticker {
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        padding: 10px 0;
+        overflow: hidden;
+        white-space: nowrap;
+        background: var(--bg2);
+      }
+
+      .ticker-inner {
+        display: inline-block;
+        animation: ticker 20s linear infinite;
+        font-family: "Share Tech Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 2px;
+        color: var(--gold-dim);
+      }
+
+      .ticker-inner span {
+        margin: 0 32px;
+      }
+      .ticker-inner .sep {
+        color: var(--gold);
+        opacity: 0.4;
+      }
+
+      /* ── ANIMATIONS ── */
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes glitch1 {
+        0%,
+        90%,
+        100% {
+          transform: translateX(-50%) translateX(0);
+        }
+        92% {
+          transform: translateX(-50%) translateX(-3px);
+        }
+        94% {
+          transform: translateX(-50%) translateX(3px);
+        }
+        96% {
+          transform: translateX(-50%) translateX(-2px);
+        }
+      }
+
+      @keyframes glitch2 {
+        0%,
+        90%,
+        100% {
+          transform: translateX(-50%) translateX(0);
+        }
+        93% {
+          transform: translateX(-50%) translateX(3px);
+        }
+        95% {
+          transform: translateX(-50%) translateX(-3px);
+        }
+        97% {
+          transform: translateX(-50%) translateX(2px);
+        }
+      }
+
+      @keyframes btnScan {
+        0% {
+          top: -2px;
+          opacity: 1;
+        }
+        100% {
+          top: 102%;
+          opacity: 0;
+        }
+      }
+
+      @keyframes eloCount {
+        0% {
+          content: "20,297";
+        }
+        50% {
+          opacity: 0.7;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+
+      @keyframes badgePulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      @keyframes ticker {
+        from {
+          transform: translateX(0);
+        }
+        to {
+          transform: translateX(-50%);
+        }
+      }
+
+      /* Cursor dot */
+      .cursor-dot {
+        position: fixed;
+        width: 6px;
+        height: 6px;
+        background: var(--gold);
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 9999;
+        transform: translate(-50%, -50%);
+        transition: transform 0.1s;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="cursor-dot" id="cursor"></div>
+
+    <!-- NAV -->
+    <nav>
+      <a href="#" class="nav-logo">ELO<span>.</span>LIVE</a>
+      <ul class="nav-links">
+        <li><a href="#how">HOW IT WORKS</a></li>
+        <li><a href="#preview">PREVIEW</a></li>
+        <li><a href="/login/steam">LOGIN</a></li>
+      </ul>
+    </nav>
+
+    <!-- TICKER -->
+    <div style="margin-top: 65px" class="ticker">
+      <div class="ticker-inner">
+        <span>PREMIER ELO LIVE</span><span class="sep">///</span>
+        <span>REAL-TIME OVERLAY</span><span class="sep">///</span>
+        <span>CS2 RANKED</span><span class="sep">///</span>
+        <span>TIKTOK LIVE</span><span class="sep">///</span>
+        <span>STREAMLABS</span><span class="sep">///</span>
+        <span>OBS STUDIO</span><span class="sep">///</span>
+        <span>PREMIER ELO LIVE</span><span class="sep">///</span>
+        <span>REAL-TIME OVERLAY</span><span class="sep">///</span>
+        <span>CS2 RANKED</span><span class="sep">///</span>
+        <span>TIKTOK LIVE</span><span class="sep">///</span>
+        <span>STREAMLABS</span><span class="sep">///</span>
+        <span>OBS STUDIO</span><span class="sep">///</span>
+      </div>
+    </div>
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-grid"></div>
+      <div class="glow-orb glow-orb-1"></div>
+      <div class="glow-orb glow-orb-2"></div>
+      <div class="corner corner-tl"></div>
+      <div class="corner corner-tr"></div>
+      <div class="corner corner-bl"></div>
+      <div class="corner corner-br"></div>
+
+      <div class="hero-content">
+        <div class="hero-tag">CS2 Premier Rating</div>
+
+        <h1 class="hero-title">
+          <span class="line1">YOUR</span>
+          <span class="line2">PREMIER</span>
+          <span class="line3">OVERLAY</span>
+        </h1>
+
+        <p class="hero-sub">
+          Prikaži svoj <strong>Premier ELO uživo</strong> na streamu.<br />
+          Prijavi se jednom. Radi zauvek.
+        </p>
+
+        <a href="/login/steam" class="btn-steam">
+          <svg
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 0C5.37 0 0 5.37 0 12c0 5.52 3.72 10.19 8.83 11.59L12.5 17c-.17-.01-.34-.02-.5-.02-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5c0 .17-.01.34-.02.5l-6.5 3.65C11.32 16.04 12 16 12 16c3.31 0 6-2.69 6-6S15.31 4 12 4s-6 2.69-6 6H4C4 6.48 7.58 3 12 3s8 3.58 8 8-3.58 8-8 8c-.27 0-.53-.01-.79-.04l-3.68 2.07C8.47 21.63 10.19 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z"
+            />
+          </svg>
+          <span>Login with Steam</span>
+        </a>
+
+        <div class="stats-bar">
+          <div class="stat-item">
+            <span class="stat-num" id="cnt-users">0</span>
+            <span class="stat-label">Active Streamers</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-num">LIVE</span>
+            <span class="stat-label">Real-time ELO</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-num">3</span>
+            <span class="stat-label">Platforms</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-num">FREE</span>
+            <span class="stat-label">Forever</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="section" id="how">
+      <div class="section-tag">// PROCESS</div>
+      <h2 class="section-title">Kako funkcioniše</h2>
+
+      <div class="steps">
+        <div class="step">
+          <span class="step-num">01 //</span>
+          <svg
+            class="step-icon"
+            viewBox="0 0 48 48"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
+            <circle cx="24" cy="24" r="20" />
+            <path d="M24 14v10l6 6" />
+            <path d="M14 24h2M32 24h2M24 14v2M24 32v2" />
+          </svg>
+          <div class="step-title">Prijavi se sa Steamom</div>
+          <div class="step-desc">
+            Jedan klik, bez lozinke. Koristimo zvaničan Steam OpenID — tvoji
+            podaci su bezbedni.
+          </div>
+        </div>
+        <div class="step">
+          <span class="step-num">02 //</span>
+          <svg
+            class="step-icon"
+            viewBox="0 0 48 48"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
+            <rect x="8" y="12" width="32" height="24" rx="2" />
+            <path d="M16 20h16M16 28h8" />
+            <circle cx="36" cy="20" r="3" fill="currentColor" stroke="none" />
+          </svg>
+          <div class="step-title">Dobij svoj URL</div>
+          <div class="step-desc">
+            Generišemo jedinstveni Browser Source link koji je vezan za tvoj
+            Steam profil.
+          </div>
+        </div>
+        <div class="step">
+          <span class="step-num">03 //</span>
+          <svg
+            class="step-icon"
+            viewBox="0 0 48 48"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
+            <rect x="6" y="8" width="36" height="28" rx="2" />
+            <path d="M14 40h20M24 36v4" />
+            <rect x="12" y="14" width="24" height="16" rx="1" />
+            <path d="M18 18h6M18 22h12M18 26h8" />
+          </svg>
+          <div class="step-title">Dodaj u stream</div>
+          <div class="step-desc">
+            Nalepi URL u TikTok Live Studio, Streamlabs ili OBS kao Browser
+            Source. Gotovo.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PREVIEW -->
+    <div class="preview-section" id="preview">
+      <div class="preview-inner">
+        <div class="preview-screen">
+          <div class="fake-hud-top">
+            <span>CT</span>
+            <span class="fake-hud-score">7 : 5</span>
+            <span>T</span>
+          </div>
+          <div class="fake-crosshair"></div>
+          <div class="overlay-widget">
+            <svg
+              class="widget-icon"
+              viewBox="0 0 100 100"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect width="100" height="100" rx="14" fill="#1a1a2e" />
+              <path
+                d="M50 12 L82 28 L82 58 C82 75 66 87 50 92 C34 87 18 75 18 58 L18 28 Z"
+                fill="none"
+                stroke="#c8a84b"
+                stroke-width="5"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M37 51 L45 60 L64 39"
+                stroke="#c8a84b"
+                stroke-width="6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                fill="none"
+              />
+            </svg>
+            <div class="widget-divider"></div>
+            <div>
+              <div class="widget-label">Premier ELO</div>
+              <div class="widget-elo">20,297</div>
+            </div>
+            <div class="widget-badge">+143</div>
+          </div>
+          <div class="fake-hud-bottom"></div>
+        </div>
+
+        <div class="preview-text">
+          <h3>
+            Izgleda ovako<br />na tvojim
+            <span style="color: var(--gold)">livestreamovima</span>
+          </h3>
+          <p>
+            Transparentan overlay koji se uklapa uz svaki layout. ELO se
+            osvežava automatski svakih 2 minuta bez ikakvog pritiska dugmeta.
+          </p>
+          <div class="url-example">elo.live/overlay/76561198858083261</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <section class="cta-section">
+      <h2 class="cta-title">Spreman za<br /><em>live?</em></h2>
+      <p class="cta-sub">Besplatno. Zauvek. Bez instalacije.</p>
+      <a href="/login/steam" class="btn-steam">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+          <path
+            d="M12 0C5.37 0 0 5.37 0 12c0 5.52 3.72 10.19 8.83 11.59L12.5 17c-.17-.01-.34-.02-.5-.02-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5c0 .17-.01.34-.02.5l-6.5 3.65C11.32 16.04 12 16 12 16c3.31 0 6-2.69 6-6S15.31 4 12 4s-6 2.69-6 6H4C4 6.48 7.58 3 12 3s8 3.58 8 8-3.58 8-8 8c-.27 0-.53-.01-.79-.04l-3.68 2.07C8.47 21.63 10.19 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z"
+          />
+        </svg>
+        <span>Login with Steam</span>
+      </a>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+      <div class="footer-logo">ELO.LIVE</div>
+      <div class="footer-text">Not affiliated with Valve Corporation</div>
+      <div class="footer-text">© 2026 ELO.LIVE</div>
+    </footer>
+
+    <script>
+      // Custom cursor
+      const cursor = document.getElementById("cursor");
+      document.addEventListener("mousemove", (e) => {
+        cursor.style.left = e.clientX + "px";
+        cursor.style.top = e.clientY + "px";
+      });
+
+      // Animate counter
+      function animateCount(el, target, duration) {
+        let start = 0;
+        const step = (timestamp) => {
+          if (!start) start = timestamp;
+          const progress = Math.min((timestamp - start) / duration, 1);
+          el.textContent = Math.floor(progress * target).toLocaleString();
+          if (progress < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }
+
+      // Trigger counter when visible
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            animateCount(document.getElementById("cnt-users"), 847, 2000);
+            observer.disconnect();
+          }
+        });
+      });
+      observer.observe(document.getElementById("cnt-users"));
+
+      // Stagger step animations
+      const steps = document.querySelectorAll(".step");
+      const stepObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e, i) => {
+            if (e.isIntersecting) {
+              setTimeout(() => {
+                e.target.style.opacity = "1";
+                e.target.style.transform = "translateY(0)";
+              }, i * 120);
+            }
+          });
+        },
+        { threshold: 0.2 },
+      );
+
+      steps.forEach((s) => {
+        s.style.opacity = "0";
+        s.style.transform = "translateY(30px)";
+        s.style.transition =
+          "opacity 0.6s ease, transform 0.6s ease, background 0.3s";
+        stepObserver.observe(s);
+      });
+    </script>
+  </body>
+</html>
