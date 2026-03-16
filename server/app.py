@@ -232,24 +232,55 @@ def api_elo(steam_id):
 
 # ── OVERLAY ───────────────────────────────────────────────────────────────────
 
+OVERLAY_STYLES = {
+    1:  dict(name="Gold Shield",   bg="rgba(10,10,15,0.85)",                                          border="rgba(255,170,0,0.3)",   accent="#ffaa00", num="#ffffff", mono=False, shield=True),
+    2:  dict(name="CS2 Premier",   bg="linear-gradient(135deg,rgba(155,0,95,0.92),rgba(65,0,145,0.92))", border="rgba(255,0,180,0.4)",  accent="#ff44cc", num="#ffffff", mono=False, shield=False),
+    3:  dict(name="Minimal",       bg="rgba(0,0,0,0.72)",                                             border="rgba(255,255,255,0.12)",accent="rgba(255,255,255,0.5)", num="#ffffff", mono=False, shield=False),
+    4:  dict(name="Neon Cyan",     bg="rgba(0,10,20,0.92)",                                           border="rgba(0,220,255,0.3)",   accent="#00dcff", num="#00dcff", mono=False, shield=False, glow="0 0 18px rgba(0,220,255,0.2)"),
+    5:  dict(name="Red Heat",      bg="rgba(15,0,0,0.92)",                                            border="rgba(255,50,50,0.3)",   accent="#ff3333", num="#ffffff", mono=False, shield=False),
+    6:  dict(name="Ice Blue",      bg="rgba(0,5,25,0.92)",                                            border="rgba(80,140,255,0.3)",  accent="#4d90ff", num="#ffffff", mono=False, shield=False),
+    7:  dict(name="Matrix",        bg="rgba(0,8,0,0.92)",                                             border="rgba(0,255,65,0.2)",    accent="#00ff41", num="#00ff41", mono=True,  shield=False),
+    8:  dict(name="Ghost",         bg="rgba(255,255,255,0.07)",                                       border="rgba(255,255,255,0.25)",accent="#ffffff", num="#ffffff", mono=False, shield=False, blur=True),
+    9:  dict(name="Purple Haze",   bg="rgba(18,0,38,0.92)",                                          border="rgba(160,0,255,0.3)",   accent="#a020f0", num="#ffffff", mono=False, shield=False),
+    10: dict(name="Blood Orange",  bg="rgba(15,5,0,0.92)",                                           border="rgba(255,120,0,0.3)",   accent="#ff7700", num="#ffffff", mono=False, shield=False),
+}
+
 @app.route("/overlay/<steam_id>")
 def overlay(steam_id):
     user = User.query.filter_by(steam_id=steam_id).first()
     if not user:
         return "User not found", 404
 
+    try:
+        style_id = max(1, min(10, int(request.args.get("style", 1))))
+    except (ValueError, TypeError):
+        style_id = 1
+
+    s = OVERLAY_STYLES[style_id]
+    extra_css = ""
+    if s.get("glow"):
+        extra_css += f"box-shadow:{s['glow']};"
+    if s.get("blur"):
+        extra_css += "backdrop-filter:blur(10px);"
+
+    num_font = "Share Tech Mono" if s["mono"] else "Bebas Neue"
+
+    shield_svg = ""
+    divider    = ""
+    if s["shield"]:
+        shield_svg = '<svg width="26" height="26" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="100" height="100" rx="14" fill="#1a1a2e"/><path d="M50 12 L82 28 L82 58 C82 75 66 87 50 92 C34 87 18 75 18 58 L18 28 Z" fill="none" stroke="#ffaa00" stroke-width="5" stroke-linejoin="round"/><path d="M37 51 L45 60 L64 39" stroke="#ffaa00" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
+        divider    = '<div style="width:1px;height:28px;background:rgba(255,255,255,0.1)"></div>'
+
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{background:transparent;overflow:hidden;font-family:'Barlow',sans-serif}}
-#w{{display:inline-flex;align-items:center;gap:10px;background:rgba(10,10,15,0.85);border:1px solid rgba(255,170,0,0.3);border-left:3px solid #ffaa00;border-radius:6px;padding:10px 18px 10px 14px}}
-svg{{width:26px;height:26px;flex-shrink:0}}
-.dv{{width:1px;height:28px;background:rgba(255,255,255,0.1)}}
-.lb{{font-size:9px;font-weight:700;letter-spacing:2.5px;color:#ffaa00;text-transform:uppercase;margin-bottom:3px}}
-#e{{font-family:'Bebas Neue',sans-serif;font-size:30px;color:#fff;line-height:1;letter-spacing:1px;min-width:70px}}
-#s{{font-size:10px;color:rgba(255,255,255,0.35);margin-top:2px}}
+#w{{display:inline-flex;align-items:center;gap:10px;background:{s['bg']};border:1px solid {s['border']};border-left:3px solid {s['accent']};border-radius:6px;padding:10px 18px 10px 14px;{extra_css}}}
+.lb{{font-size:9px;font-weight:700;letter-spacing:2.5px;color:{s['accent']};text-transform:uppercase;margin-bottom:3px}}
+#e{{font-family:'{num_font}',sans-serif;font-size:30px;color:{s['num']};line-height:1;letter-spacing:1px;min-width:70px}}
+#s{{font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px}}
 #b{{font-size:11px;font-weight:700;padding:3px 7px;border-radius:3px;display:none}}
 .u{{background:rgba(0,200,100,0.18);color:#00cc66;display:block}}
 .dn{{background:rgba(220,50,50,0.18);color:#ff4444;display:block}}
@@ -259,12 +290,7 @@ svg{{width:26px;height:26px;flex-shrink:0}}
 .pop{{animation:pop .3s ease}}
 </style></head><body>
 <div id="w">
-<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-<rect width="100" height="100" rx="14" fill="#1a1a2e"/>
-<path d="M50 12 L82 28 L82 58 C82 75 66 87 50 92 C34 87 18 75 18 58 L18 28 Z" fill="none" stroke="#ffaa00" stroke-width="5" stroke-linejoin="round"/>
-<path d="M37 51 L45 60 L64 39" stroke="#ffaa00" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-</svg>
-<div class="dv"></div>
+{shield_svg}{divider}
 <div><div class="lb">Premier ELO</div><div id="e" class="bl">---</div><div id="s">loading...</div></div>
 <div id="b"></div>
 </div>
@@ -278,7 +304,7 @@ async function poll(){{
       $e.classList.remove('bl');$e.classList.add('pop');
       setTimeout(()=>$e.classList.remove('pop'),350);
       $e.textContent=d.elo.toLocaleString('en-US');
-      $s.textContent='S4 - '+(d.ts||'');
+      $s.textContent=d.ts?'update '+d.ts:'';
       if(d.diff&&d.diff!==0&&last!==null){{
         $b.textContent=(d.diff>0?'+':'')+d.diff;
         $b.className=d.diff>0?'u':'dn';

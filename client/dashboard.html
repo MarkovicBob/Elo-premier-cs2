@@ -211,6 +211,43 @@
         }
       }
 
+      /* STYLE PICKER */
+      .style-picker {
+        margin-bottom: 24px;
+      }
+      .style-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .style-btn {
+        cursor: pointer;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        overflow: hidden;
+        transition: border-color 0.2s, transform 0.15s;
+      }
+      .style-btn:hover { border-color: var(--gold-dim); transform: translateY(-1px); }
+      .style-btn.active { border-color: var(--gold); }
+      .style-preview {
+        padding: 10px 12px;
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 20px;
+        letter-spacing: 1px;
+        border-left: 3px solid currentColor;
+      }
+      .style-name {
+        font-family: "Share Tech Mono", monospace;
+        font-size: 9px;
+        letter-spacing: 1px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        padding: 5px 8px;
+        background: var(--bg3);
+        text-align: center;
+      }
+
       /* URL CARD */
       .url-card {
         border: 1px solid var(--border);
@@ -678,6 +715,53 @@
         </div>
       </div>
 
+      <!-- STYLE PICKER -->
+      <div class="style-picker">
+        <div class="page-tag">// IZABERI IZGLED OVERLAYA</div>
+        <div class="style-grid">
+          <div class="style-btn active" id="style-btn-1" onclick="selectStyle(1)">
+            <div class="style-preview" style="background:rgba(10,10,15,0.85);color:#ffaa00">20,337</div>
+            <div class="style-name">Gold Shield</div>
+          </div>
+          <div class="style-btn" id="style-btn-2" onclick="selectStyle(2)">
+            <div class="style-preview" style="background:linear-gradient(135deg,rgba(155,0,95,0.92),rgba(65,0,145,0.92));color:#ff44cc">20,337</div>
+            <div class="style-name">CS2 Premier</div>
+          </div>
+          <div class="style-btn" id="style-btn-3" onclick="selectStyle(3)">
+            <div class="style-preview" style="background:rgba(0,0,0,0.72);color:rgba(255,255,255,0.5)">20,337</div>
+            <div class="style-name">Minimal</div>
+          </div>
+          <div class="style-btn" id="style-btn-4" onclick="selectStyle(4)">
+            <div class="style-preview" style="background:rgba(0,10,20,0.92);color:#00dcff">20,337</div>
+            <div class="style-name">Neon Cyan</div>
+          </div>
+          <div class="style-btn" id="style-btn-5" onclick="selectStyle(5)">
+            <div class="style-preview" style="background:rgba(15,0,0,0.92);color:#ff3333">20,337</div>
+            <div class="style-name">Red Heat</div>
+          </div>
+          <div class="style-btn" id="style-btn-6" onclick="selectStyle(6)">
+            <div class="style-preview" style="background:rgba(0,5,25,0.92);color:#4d90ff">20,337</div>
+            <div class="style-name">Ice Blue</div>
+          </div>
+          <div class="style-btn" id="style-btn-7" onclick="selectStyle(7)">
+            <div class="style-preview" style="background:rgba(0,8,0,0.92);color:#00ff41;font-family:'Share Tech Mono',monospace">20,337</div>
+            <div class="style-name">Matrix</div>
+          </div>
+          <div class="style-btn" id="style-btn-8" onclick="selectStyle(8)">
+            <div class="style-preview" style="background:rgba(255,255,255,0.07);color:#ffffff">20,337</div>
+            <div class="style-name">Ghost</div>
+          </div>
+          <div class="style-btn" id="style-btn-9" onclick="selectStyle(9)">
+            <div class="style-preview" style="background:rgba(18,0,38,0.92);color:#a020f0">20,337</div>
+            <div class="style-name">Purple Haze</div>
+          </div>
+          <div class="style-btn" id="style-btn-10" onclick="selectStyle(10)">
+            <div class="style-preview" style="background:rgba(15,5,0,0.92);color:#ff7700">20,337</div>
+            <div class="style-name">Blood Orange</div>
+          </div>
+        </div>
+      </div>
+
       <!-- OVERLAY URL CARD -->
       <div class="url-card" id="url-card">
         <div class="url-title">// TVOJ BROWSER SOURCE URL</div>
@@ -829,6 +913,18 @@
 
     <script>
       let overlayUrl = "";
+      let steamId = "";
+      let selectedStyle = 1;
+
+      function selectStyle(n) {
+        selectedStyle = n;
+        document.querySelectorAll(".style-btn").forEach(b => b.classList.remove("active"));
+        document.getElementById("style-btn-" + n).classList.add("active");
+        if (steamId) {
+          overlayUrl = window.location.origin.replace("127.0.0.1", "localhost") + "/overlay/" + steamId + (n > 1 ? "?style=" + n : "");
+          document.getElementById("overlay-url-text").textContent = overlayUrl;
+        }
+      }
 
       async function loadUser() {
         try {
@@ -839,9 +935,9 @@
           }
           const d = await r.json();
 
+          steamId = d.steam_id;
           document.getElementById("nav-avatar").src = d.avatar || "";
-          document.getElementById("nav-username").textContent =
-            d.username || "";
+          document.getElementById("nav-username").textContent = d.username || "";
 
           // ELO
           if (d.elo) {
@@ -859,8 +955,7 @@
           }
 
           // Overlay URL
-          overlayUrl = window.location.origin.replace("127.0.0.1", "localhost") + "/overlay/" + d.steam_id;
-          document.getElementById("overlay-url-text").textContent = overlayUrl;
+          selectStyle(selectedStyle);
           document.getElementById("url-card").style.display = "block";
 
           // Sakrij setup samo ako ima ELO
