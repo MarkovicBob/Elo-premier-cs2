@@ -246,13 +246,13 @@ def overlay(steam_id):
     # Common JS for all styles - tier color system
     js = f"""<script>
 const TIERS=[
-  {{min:30000,c:'#ffd700',b1:'rgba(50,30,0,.92)', b2:'rgba(25,15,0,.92)'}},
-  {{min:25000,c:'#f44336',b1:'rgba(50,5,5,.92)',  b2:'rgba(25,0,0,.92)'}},
-  {{min:20000,c:'#e91e8c',b1:'rgba(140,0,80,.92)',b2:'rgba(70,0,140,.92)'}},
-  {{min:15000,c:'#9c27b0',b1:'rgba(60,0,95,.92)', b2:'rgba(28,0,55,.92)'}},
-  {{min:10000,c:'#3f51b5',b1:'rgba(20,25,115,.92)',b2:'rgba(10,12,58,.92)'}},
-  {{min:5000, c:'#64b5f6',b1:'rgba(10,38,80,.92)', b2:'rgba(5,18,40,.92)'}},
-  {{min:0,    c:'#9e9e9e',b1:'rgba(20,20,20,.92)', b2:'rgba(10,10,10,.92)'}},
+  {{min:30000,c:'#ffd700',tint:'rgba(50,35,0,.55)' }},
+  {{min:25000,c:'#f44336',tint:'rgba(50,8,8,.55)'  }},
+  {{min:20000,c:'#e91e8c',tint:'rgba(100,0,60,.55)'}},
+  {{min:15000,c:'#9c27b0',tint:'rgba(55,0,80,.55)' }},
+  {{min:10000,c:'#3f51b5',tint:'rgba(20,28,100,.55)'}},
+  {{min:5000, c:'#64b5f6',tint:'rgba(12,40,80,.55)' }},
+  {{min:0,    c:'#9e9e9e',tint:'rgba(25,25,25,.55)' }},
 ];
 function T(e){{return TIERS.find(t=>e>=t.min)||TIERS[6];}}
 let last=null;
@@ -267,12 +267,11 @@ async function poll(){{
       $e.classList.remove('bl');$e.classList.add('pop');
       setTimeout(()=>$e.classList.remove('pop'),350);
       $e.textContent=d.elo.toLocaleString('en-US');
-
       document.querySelectorAll('[data-c]').forEach(el=>el.style.color=t.c);
       document.querySelectorAll('[data-bl]').forEach(el=>el.style.borderLeftColor=t.c);
       document.querySelectorAll('[data-bc]').forEach(el=>{{el.style.borderColor=t.c+'55';}});
-      document.querySelectorAll('[data-bg]').forEach(el=>{{el.style.background=`linear-gradient(135deg,${{t.b1}},${{t.b2}})`;}});
       document.querySelectorAll('[data-fill]').forEach(el=>el.style.background=t.c);
+      document.querySelectorAll('[data-tint]').forEach(el=>el.style.background=t.tint);
       document.querySelectorAll('[data-glow]').forEach(el=>{{el.style.textShadow=`0 0 20px ${{t.c}}aa,0 0 40px ${{t.c}}44`;}});
       if(d.diff&&d.diff!==0&&last!==null&&$b){{
         $b.textContent=(d.diff>0?'+':'')+d.diff;
@@ -304,11 +303,12 @@ poll();setInterval(poll,15000);
 <div id="b"></div></div>"""
 
     elif sid == 2:
-        # CS2 In-Game style - exactly like the screenshot: thick left border, auto-color gradient bg, big number
-        css = "body{font-family:'Barlow',sans-serif}#w{display:inline-flex;align-items:center;gap:0;border-left:5px solid #e91e8c;border-radius:4px;overflow:hidden}#inner{background:rgba(140,0,80,.82);padding:7px 14px 7px 10px}#e{font-family:'Bebas Neue';font-size:32px;color:#fff;line-height:1;letter-spacing:2px;min-width:75px}#b-wrap{display:flex;align-items:center;gap:6px}#s{display:none}"
-        body = """<div id="w" data-bl><div id="inner" data-bg>
-<div id="b-wrap"><div id="e" class="bl">---</div><div id="b"></div></div>
-</div></div><div id="s"></div>"""
+        # CS2 EXACT replica: two || bars (data-fill) + tinted bg (data-tint) + tier-colored number (data-c)
+        css = "body{font-family:'Barlow',sans-serif}#w{display:inline-flex;align-items:center;gap:8px;background:rgba(15,15,20,.9);border-radius:4px;padding:7px 14px 7px 8px}#bars{display:flex;gap:3px;align-items:center}.bar{width:4px;height:34px;border-radius:1px}#e{font-family:'Bebas Neue';font-size:34px;line-height:1;letter-spacing:2px;min-width:80px}#s{display:none}"
+        body = """<div id="w" data-tint>
+<div id="bars"><div class="bar" data-fill></div><div class="bar" data-fill></div></div>
+<div id="e" class="bl" data-c>---</div>
+<div id="b"></div></div><div id="s"></div>"""
 
     elif sid == 3:
         # Minimal - just the number, colored bar underneath, no background
