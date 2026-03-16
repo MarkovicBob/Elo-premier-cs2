@@ -267,7 +267,7 @@ async function poll(){{
       $e.classList.remove('bl');$e.classList.add('pop');
       setTimeout(()=>$e.classList.remove('pop'),350);
       $e.textContent=d.elo.toLocaleString('en-US');
-      if($s)$s.textContent=d.ts?'update '+d.ts:'';
+
       document.querySelectorAll('[data-c]').forEach(el=>el.style.color=t.c);
       document.querySelectorAll('[data-bl]').forEach(el=>el.style.borderLeftColor=t.c);
       document.querySelectorAll('[data-bc]').forEach(el=>{{el.style.borderColor=t.c+'55';}});
@@ -280,8 +280,8 @@ async function poll(){{
         setTimeout(()=>{{$b.className='';$b.style.display='none';}},8000);
       }}
       last=d.elo;
-    }}else{{if($s)$s.textContent='ceka ELO...';}}
-  }}catch(err){{if($s)$s.textContent='retry...';}}
+    }}
+  }}catch(err){{}}
 }}
 poll();setInterval(poll,15000);
 </script>"""
