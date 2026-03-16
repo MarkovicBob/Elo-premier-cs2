@@ -94,7 +94,7 @@ threading.Thread(target=refresh_all_users, daemon=True).start()
 
 # ── ROUTES ────────────────────────────────────────────────────────────────────
 
-@app.route("/")
+@app.route("/", methods=["GET", "POST"])
 def index():
     return send_from_directory("../client", "index.html")
 
@@ -246,17 +246,19 @@ def overlay(steam_id):
     # Common JS for all styles - tier color system
     js = f"""<script>
 const TIERS=[
-  {{min:30000,c:'#ffd700',tint:'rgba(50,35,0,.55)' }},
-  {{min:25000,c:'#f44336',tint:'rgba(50,8,8,.55)'  }},
-  {{min:20000,c:'#e91e8c',tint:'rgba(100,0,60,.55)'}},
-  {{min:15000,c:'#9c27b0',tint:'rgba(55,0,80,.55)' }},
-  {{min:10000,c:'#3f51b5',tint:'rgba(20,28,100,.55)'}},
-  {{min:5000, c:'#64b5f6',tint:'rgba(12,40,80,.55)' }},
-  {{min:0,    c:'#9e9e9e',tint:'rgba(25,25,25,.55)' }},
+  {{min:30000,c:'#ffd700',bg:'rgba(40,28,0,.93)',  tint:'rgba(50,35,0,.82)',  glow:'rgba(255,215,0,.4)' }},
+  {{min:25000,c:'#f44336',bg:'rgba(42,6,6,.93)',   tint:'rgba(50,8,8,.82)',   glow:'rgba(244,67,54,.4)' }},
+  {{min:20000,c:'#e91e8c',bg:'rgba(80,0,50,.93)',  tint:'rgba(100,0,60,.82)', glow:'rgba(233,30,140,.4)'}},
+  {{min:15000,c:'#9c27b0',bg:'rgba(44,0,66,.93)',  tint:'rgba(55,0,80,.82)',  glow:'rgba(156,39,176,.4)'}},
+  {{min:10000,c:'#3f51b5',bg:'rgba(16,22,84,.93)', tint:'rgba(20,28,100,.82)',glow:'rgba(63,81,181,.4)' }},
+  {{min:5000, c:'#64b5f6',bg:'rgba(8,32,66,.93)',  tint:'rgba(12,40,80,.82)', glow:'rgba(100,181,246,.4)'}},
+  {{min:0,    c:'#9e9e9e',bg:'rgba(22,22,22,.93)', tint:'rgba(25,25,25,.82)', glow:'rgba(158,158,158,.4)'}},
 ];
 function T(e){{return TIERS.find(t=>e>=t.min)||TIERS[6];}}
 let last=null;
 const $e=document.getElementById('e');
+const $e1=document.getElementById('e1');
+const $e2=document.getElementById('e2');
 const $s=document.getElementById('s');
 const $b=document.getElementById('b');
 async function poll(){{
@@ -264,14 +266,25 @@ async function poll(){{
     const d=await fetch('/api/elo/{steam_id}').then(r=>r.json());
     if(d.elo){{
       const t=T(d.elo);
-      $e.classList.remove('bl');$e.classList.add('pop');
-      setTimeout(()=>$e.classList.remove('pop'),350);
-      $e.textContent=d.elo.toLocaleString('en-US');
+      if($e1){{
+        const parts=d.elo.toLocaleString('en-US').split(',');
+        $e1.textContent=parts[0];
+        if($e2) $e2.textContent=parts[1]||'';
+        $e1.classList.remove('bl');$e1.classList.add('pop');
+        setTimeout(()=>$e1.classList.remove('pop'),350);
+      }} else if($e){{
+        $e.classList.remove('bl');$e.classList.add('pop');
+        setTimeout(()=>$e.classList.remove('pop'),350);
+        $e.textContent=d.elo.toLocaleString('en-US');
+      }}
       document.querySelectorAll('[data-c]').forEach(el=>el.style.color=t.c);
       document.querySelectorAll('[data-bl]').forEach(el=>el.style.borderLeftColor=t.c);
       document.querySelectorAll('[data-bc]').forEach(el=>{{el.style.borderColor=t.c+'55';}});
       document.querySelectorAll('[data-fill]').forEach(el=>el.style.background=t.c);
       document.querySelectorAll('[data-tint]').forEach(el=>el.style.background=t.tint);
+      document.querySelectorAll('[data-bg]').forEach(el=>el.style.background=t.bg);
+      document.querySelectorAll('[data-boxglow]').forEach(el=>el.style.boxShadow=`0 0 0 1px ${{t.c}}55,0 0 18px ${{t.glow}},inset 0 1px 0 rgba(255,255,255,.08),inset 0 -1px 0 rgba(0,0,0,.4)`);
+      document.querySelectorAll('[data-cssvar]').forEach(el=>{{el.style.setProperty('--c',t.c);el.style.setProperty('--bg',t.bg);el.style.setProperty('--glow',t.glow);}});
       document.querySelectorAll('[data-glow]').forEach(el=>{{el.style.textShadow=`0 0 20px ${{t.c}}aa,0 0 40px ${{t.c}}44`;}});
       if(d.diff&&d.diff!==0&&last!==null&&$b){{
         $b.textContent=(d.diff>0?'+':'')+d.diff;
@@ -303,13 +316,12 @@ poll();setInterval(poll,15000);
 <div id="b"></div></div>"""
 
     elif sid == 2:
-        # CS2 EXACT replica: skewed parallelogram bg, two || bars, tier-colored number
-        css = "body{font-family:'Barlow',sans-serif}#w{display:inline-flex;align-items:center;position:relative;padding:5px 14px 5px 8px;gap:6px}#skew-bg{position:absolute;inset:0;transform:skewX(-10deg);border-radius:1px}#bars{display:flex;gap:3px;align-items:center;position:relative;z-index:1}.bar{width:3px;height:26px;border-radius:0}#e{font-family:'Bebas Neue';font-size:28px;line-height:1;letter-spacing:1px;position:relative;z-index:1}#s{display:none}"
-        body = """<div id="w">
-<div id="skew-bg" data-tint></div>
-<div id="bars"><div class="bar" data-fill></div><div class="bar" data-fill></div></div>
-<div id="e" class="bl" data-c>---</div>
-<div id="b" style="position:relative;z-index:1"></div></div><div id="s"></div>"""
+        # CS2 Premier badge — CSS variables, pseudo-element depth, skewed // slash, split number
+        css = "html,body{width:100%;height:100%;margin:0;padding:0}body{display:flex;align-items:center;padding:5px 6px}#badge{--c:#9e9e9e;--bg:rgba(22,22,22,.93);--glow:rgba(158,158,158,.25);display:inline-flex;align-items:stretch;border-radius:3px;overflow:visible;position:relative;background:var(--bg);box-shadow:0 0 0 1px rgba(255,255,255,.12),0 0 22px var(--glow),inset 0 1px 0 rgba(255,255,255,.1),inset 0 -1px 0 rgba(0,0,0,.4)}#badge::after{content:'';position:absolute;inset:0;border-radius:3px;background:linear-gradient(170deg,rgba(255,255,255,.07) 0%,transparent 55%);pointer-events:none;z-index:2}.slash{display:flex;align-items:center;padding:8px 4px 8px 10px;font-family:'Bebas Neue',sans-serif;font-size:34px;line-height:1;letter-spacing:-5px;color:var(--c);transform:skewX(-10deg);text-shadow:0 0 8px var(--glow);position:relative;z-index:1}.num{display:flex;align-items:baseline;padding:7px 14px 7px 8px;font-family:'Bebas Neue',sans-serif;line-height:1;position:relative;z-index:1}.num .big{font-size:46px;letter-spacing:0;color:var(--c);-webkit-text-stroke:1px var(--c);text-shadow:0 0 10px var(--glow)}.num .sep{font-size:46px;color:var(--c);-webkit-text-stroke:1px var(--c)}.num .small{font-size:28px;letter-spacing:1px;color:var(--c);-webkit-text-stroke:.7px var(--c);opacity:.8}#s{display:none}"
+        body = """<div id="badge" data-cssvar>
+<div class="slash">//</div>
+<div class="num"><span id="e1" class="big bl">--</span><span class="sep">,</span><span id="e2" class="small">---</span></div>
+<div id="b" style="display:none"></div></div><div id="s" style="display:none"></div>"""
 
     elif sid == 3:
         # Minimal - just the number, colored bar underneath, no background
