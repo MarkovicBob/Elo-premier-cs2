@@ -17,6 +17,15 @@ class User(db.Model):
     elo_diff       = db.Column(db.Integer)
     last_update    = db.Column(db.DateTime)
     created_at     = db.Column(db.DateTime, default=datetime.utcnow)
+    # W/L/T tracking
+    total_wins     = db.Column(db.Integer, default=0)
+    total_losses   = db.Column(db.Integer, default=0)
+    total_ties     = db.Column(db.Integer, default=0)
+    session_wins   = db.Column(db.Integer, default=0)   # baseline for current day
+    session_losses = db.Column(db.Integer, default=0)
+    session_ties   = db.Column(db.Integer, default=0)
+    session_date   = db.Column(db.String(10))            # YYYY-MM-DD of last reset
+    session_elo    = db.Column(db.Integer)               # ELO at start of current day
 
     def __repr__(self):
         return f"<User {self.username} ({self.steam_id}) ELO={self.current_elo}>"
