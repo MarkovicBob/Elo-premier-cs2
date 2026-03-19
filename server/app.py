@@ -273,6 +273,13 @@ def api_status():
     return jsonify({"has_api_key": bool(os.environ.get("STEAM_API_KEY", ""))})
 
 
+@app.route("/local/<path:filename>")
+def serve_local(filename):
+    """Servira fajlove iz server/local/ foldera (gitignored, za custom assets)."""
+    local_dir = os.path.join(os.path.dirname(__file__), "local")
+    return send_from_directory(local_dir, filename)
+
+
 @app.route("/api/me")
 def api_me():
     if "steam_id" not in session:
@@ -394,13 +401,13 @@ def overlay(steam_id):
     # Common JS for all styles - tier color system
     js = f"""<script>
 const TIERS=[
-  {{min:30000,c:'#ffd700',bg:'rgba(40,28,0,.93)',  tint:'rgba(50,35,0,.82)',  glow:'rgba(255,215,0,.4)' }},
-  {{min:25000,c:'#f44336',bg:'rgba(42,6,6,.93)',   tint:'rgba(50,8,8,.82)',   glow:'rgba(244,67,54,.4)' }},
-  {{min:20000,c:'#e91e8c',bg:'rgba(80,0,50,.93)',  tint:'rgba(100,0,60,.82)', glow:'rgba(233,30,140,.4)'}},
-  {{min:15000,c:'#9c27b0',bg:'rgba(44,0,66,.93)',  tint:'rgba(55,0,80,.82)',  glow:'rgba(156,39,176,.4)'}},
-  {{min:10000,c:'#3f51b5',bg:'rgba(16,22,84,.93)', tint:'rgba(20,28,100,.82)',glow:'rgba(63,81,181,.4)' }},
-  {{min:5000, c:'#64b5f6',bg:'rgba(8,32,66,.93)',  tint:'rgba(12,40,80,.82)', glow:'rgba(100,181,246,.4)'}},
-  {{min:0,    c:'#9e9e9e',bg:'rgba(22,22,22,.93)', tint:'rgba(25,25,25,.82)', glow:'rgba(158,158,158,.4)'}},
+  {{min:30000,c:'#f5c518',bg:'linear-gradient(135deg,rgba(245,197,24,.22) 0%,rgba(14,10,0,.95) 60%)',  glow:'rgba(245,197,24,.55)' }},
+  {{min:25000,c:'#ef4444',bg:'linear-gradient(135deg,rgba(239,68,68,.22) 0%,rgba(14,2,2,.95) 60%)',   glow:'rgba(239,68,68,.55)' }},
+  {{min:20000,c:'#ff50ff',bg:'linear-gradient(135deg,rgba(255,80,255,.22) 0%,rgba(14,0,14,.95) 60%)', glow:'rgba(255,80,255,.55)'}},
+  {{min:15000,c:'#a855f7',bg:'linear-gradient(135deg,rgba(168,85,247,.22) 0%,rgba(8,0,18,.95) 60%)',  glow:'rgba(168,85,247,.55)'}},
+  {{min:10000,c:'#4a6cf7',bg:'linear-gradient(135deg,rgba(74,108,247,.22) 0%,rgba(2,6,20,.95) 60%)',  glow:'rgba(74,108,247,.55)' }},
+  {{min:5000, c:'#38bdf8',bg:'linear-gradient(135deg,rgba(56,189,248,.22) 0%,rgba(0,10,20,.95) 60%)', glow:'rgba(56,189,248,.55)'}},
+  {{min:0,    c:'#9ca3af',bg:'linear-gradient(135deg,rgba(156,163,175,.14) 0%,rgba(8,8,8,.95) 60%)',  glow:'rgba(156,163,175,.4)'}},
 ];
 function T(e){{return TIERS.find(t=>e>=t.min)||TIERS[6];}}
 let last=null;
