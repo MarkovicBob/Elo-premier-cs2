@@ -26,3 +26,7 @@ server/instance/
 # OS
 .DS_Store
 Thumbs.db
+
+# IDE / tools
+.vscode/
+.claude/
