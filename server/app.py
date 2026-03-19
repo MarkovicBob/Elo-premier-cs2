@@ -444,9 +444,9 @@ async function poll(){{
       const $sw=document.getElementById('sw');
       const $sl2=document.getElementById('sl2');
       const $st=document.getElementById('st');
-      if($sw) $sw.textContent='W: '+(d.session_w??0);
-      if($sl2) $sl2.textContent='L: '+(d.session_l??0);
-      if($st) $st.textContent='T: '+(d.session_t??0);
+      if($sw) $sw.textContent='W:'+(d.session_w??0);
+      if($sl2) $sl2.textContent='L:'+(d.session_l??0);
+      if($st) $st.textContent='T:'+(d.session_t??0);
       // ELO diff danas (style 3)
       const $etd=document.getElementById('elo_today');
       if($etd){{
@@ -461,38 +461,52 @@ poll();setInterval(poll,15000);
 </script>"""
 
     base = """*{margin:0;padding:0;box-sizing:border-box}body{background:transparent;overflow:hidden}
-@keyframes bl{0%,100%{opacity:1}50%{opacity:.3}}@keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.1)}100%{transform:scale(1)}}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:.3}}@keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.18)}100%{transform:scale(1)}}
 .bl{animation:bl 1.4s ease-in-out infinite}.pop{animation:pop .3s ease}
-#b{font-size:11px;font-weight:700;padding:2px 7px;border-radius:3px;display:none}
+#b{font-size:13px;font-weight:700;padding:3px 9px;border-radius:3px;display:none;position:absolute;top:32px;right:32px}
 .u{background:rgba(0,200,100,.18);color:#00cc66;display:block}.dn{background:rgba(220,50,50,.18);color:#ff4444;display:block}"""
 
     FONTS = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;700;900&family=Share+Tech+Mono&family=Orbitron:wght@700&display=swap"
 
     # CS2 badge base CSS — shared across all styles
-    CS2 = ("html,body{width:100%;height:100%;margin:0;padding:0}"
-           "body{display:flex;align-items:flex-start;padding:5px 6px}"
-           "#badge{--c:#9e9e9e;--bg:rgba(22,22,22,.93);--glow:rgba(158,158,158,.25);"
-           "display:inline-flex;align-items:stretch;border-radius:3px;overflow:visible;"
-           "position:relative;background:var(--bg);"
-           "box-shadow:0 0 0 1px rgba(255,255,255,.12),0 0 22px var(--glow),"
-           "inset 0 1px 0 rgba(255,255,255,.1),inset 0 -1px 0 rgba(0,0,0,.4)}"
-           "#badge::after{content:'';position:absolute;inset:0;border-radius:3px;"
-           "background:linear-gradient(170deg,rgba(255,255,255,.07) 0%,transparent 55%);"
+    CS2 = ("html,body{width:1080px;height:1080px;margin:0;padding:0;overflow:hidden}"
+           "body{display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-end;"
+           "padding:0 40px 40px 0;position:relative}"
+           "#badge{--c:#9e9e9e;--bg:rgba(18,18,20,.82);--glow:rgba(158,158,158,.3);"
+           "display:inline-flex;flex-direction:column;align-items:stretch;"
+           "border-radius:6px;overflow:hidden;position:relative;"
+           "background:var(--bg);"
+           "backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);"
+           "border:1px solid rgba(255,255,255,.10);"
+           "border-left:3px solid var(--c);"
+           "box-shadow:0 8px 32px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.06),"
+           "0 0 40px var(--glow)}"
+           "#badge::after{content:'';position:absolute;inset:0;border-radius:6px;"
+           "background:linear-gradient(160deg,rgba(255,255,255,.06) 0%,transparent 50%);"
            "pointer-events:none;z-index:2}"
-           ".slash{display:flex;align-items:center;padding:8px 4px 8px 10px;"
-           "font-family:'Bebas Neue',sans-serif;font-size:34px;line-height:1;"
-           "letter-spacing:-5px;color:var(--c);transform:skewX(-10deg);"
-           "text-shadow:0 0 8px var(--glow);position:relative;z-index:1}"
-           ".num{display:flex;align-items:baseline;padding:7px 14px 7px 8px;"
-           "font-family:'Bebas Neue',sans-serif;line-height:1;position:relative;z-index:1}"
-           ".big{font-size:46px;letter-spacing:0;color:var(--c);-webkit-text-stroke:1px var(--c);text-shadow:0 0 10px var(--glow)}"
-           ".sep{font-size:46px;color:var(--c);-webkit-text-stroke:1px var(--c)}"
-           ".small{font-size:28px;letter-spacing:1px;color:var(--c);-webkit-text-stroke:.7px var(--c);opacity:.8}"
+           ".badge-inner{display:flex;align-items:stretch;position:relative;z-index:1}"
+           ".micro{font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;"
+           "letter-spacing:4px;color:rgba(255,255,255,.35);text-transform:uppercase;"
+           "padding:12px 20px 0 20px;text-align:right}"
+           ".slash{display:flex;align-items:center;padding:6px 4px 14px 18px;"
+           "font-family:'Bebas Neue',sans-serif;font-size:70px;line-height:1;"
+           "letter-spacing:-10px;color:var(--c);transform:skewX(-10deg);"
+           "text-shadow:0 0 20px var(--glow)}"
+           ".num{display:flex;align-items:baseline;padding:6px 22px 14px 6px;"
+           "font-family:'Bebas Neue',sans-serif;line-height:1}"
+           ".big{font-size:96px;letter-spacing:-1px;color:var(--c);"
+           "-webkit-text-stroke:1.5px var(--c);text-shadow:0 0 20px var(--glow)}"
+           ".sep{font-size:96px;color:var(--c);-webkit-text-stroke:1.5px var(--c);margin:0 2px}"
+           ".small{font-size:82px;letter-spacing:1px;color:var(--c);"
+           "-webkit-text-stroke:1px var(--c);opacity:.85}"
            "#s{display:none}")
 
     BADGE_HTML = """<div id="badge" data-cssvar>
+<div class="micro">PREMIER ELO</div>
+<div class="badge-inner">
 <div class="slash">//</div>
 <div class="num"><span id="e1" class="big bl">--</span><span class="sep">,</span><span id="e2" class="small">---</span></div>
+</div>
 </div>"""
 
     if sid == 1:
@@ -502,30 +516,45 @@ poll();setInterval(poll,15000);
 
     elif sid == 2:
         # Style 2 — CS2 badge + W/T/L danas
-        css = (CS2 + "body{flex-direction:column;gap:4px}"
-               "#row{display:flex;gap:8px;padding:2px 2px;align-items:center;font-family:'Barlow',sans-serif}"
-               ".wlt{font-size:12px;font-weight:700;letter-spacing:.5px}"
-               "#sw{color:#00cc66}#sl2{color:#ff4444}#st{color:rgba(255,255,255,.45)}"
-               ".div{color:rgba(255,255,255,.2);font-size:10px;margin:0 2px}")
-        body = (BADGE_HTML +
-                """<div id="row">
-<span id="sw" class="wlt">W: -</span><span class="div">|</span>
-<span id="st" class="wlt">T: -</span><span class="div">|</span>
-<span id="sl2" class="wlt">L: -</span>
+        css = (CS2 +
+               "#row{display:flex;gap:14px;padding:8px 20px 12px 20px;align-items:center;"
+               "font-family:'Barlow',sans-serif;border-top:1px solid rgba(255,255,255,.07);"
+               "position:relative;z-index:1}"
+               ".wlt{font-size:34px;font-weight:900;letter-spacing:.5px;line-height:1}"
+               "#sw{color:#00cc66}#sl2{color:#ff4444}#st{color:rgba(255,255,255,.4)}"
+               ".div{color:rgba(255,255,255,.15);font-size:28px;font-weight:300;margin:0 2px}")
+        body = ("""<div id="badge" data-cssvar>
+<div class="micro">PREMIER ELO</div>
+<div class="badge-inner">
+<div class="slash">//</div>
+<div class="num"><span id="e1" class="big bl">--</span><span class="sep">,</span><span id="e2" class="small">---</span></div>
 </div>
-<div id="b" style="display:none"></div><div id="s" style="display:none"></div>""")
+<div id="row">
+<span id="sw" class="wlt">W:-</span><span class="div">|</span>
+<span id="st" class="wlt">T:-</span><span class="div">|</span>
+<span id="sl2" class="wlt">L:-</span>
+</div>
+</div>""" + """<div id="b" style="display:none"></div><div id="s" style="display:none"></div>""")
 
     elif sid == 3:
         # Style 3 — CS2 badge + ELO diff danas
-        css = (CS2 + "body{flex-direction:column;gap:4px}"
-               "#row{padding:2px 2px;font-family:'Barlow',sans-serif;display:flex;align-items:center;gap:6px}"
-               ".lbl{font-size:8px;font-weight:700;letter-spacing:2px;color:rgba(255,255,255,.3)}"
-               "#elo_today{font-size:14px;font-weight:700;letter-spacing:.5px}")
-        body = (BADGE_HTML +
-                """<div id="row">
+        css = (CS2 +
+               "#row{display:flex;align-items:center;gap:14px;padding:8px 20px 12px 20px;"
+               "font-family:'Barlow',sans-serif;border-top:1px solid rgba(255,255,255,.07);"
+               "position:relative;z-index:1}"
+               ".lbl{font-size:13px;font-weight:700;letter-spacing:4px;"
+               "color:rgba(255,255,255,.3);text-transform:uppercase}"
+               "#elo_today{font-size:36px;font-weight:900;letter-spacing:.5px;line-height:1}")
+        body = ("""<div id="badge" data-cssvar>
+<div class="micro">PREMIER ELO</div>
+<div class="badge-inner">
+<div class="slash">//</div>
+<div class="num"><span id="e1" class="big bl">--</span><span class="sep">,</span><span id="e2" class="small">---</span></div>
+</div>
+<div id="row">
 <span class="lbl">DANAS</span><span id="elo_today" style="color:#9e9e9e">+0</span>
 </div>
-<div id="b" style="display:none"></div><div id="s" style="display:none"></div>""")
+</div>""" + """<div id="b" style="display:none"></div><div id="s" style="display:none"></div>""")
 
     elif sid == 4:
         css = CS2
