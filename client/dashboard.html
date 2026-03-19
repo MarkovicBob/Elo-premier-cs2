@@ -821,6 +821,11 @@
         </div>
       </div>
 
+      <!-- UPDATE COOKIES BTN -->
+      <button id="btn-update-cookies" onclick="document.getElementById('setup-card').style.display='block';this.style.display='none'" style="display:none;align-items:center;gap:8px;background:transparent;border:1px solid var(--border);color:var(--text-muted);font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;padding:8px 20px;cursor:pointer;margin-bottom:16px;transition:all .2s">
+        ↺ AŽURIRAJ COOKIES
+      </button>
+
       <!-- API KEY BANNER -->
       <div id="api-key-banner" style="display:none;border:1px solid rgba(200,168,75,.3);border-left:3px solid var(--gold);background:rgba(200,168,75,.06);padding:20px 28px;margin-bottom:24px">
         <div style="display:flex;align-items:flex-start;gap:16px">
@@ -1016,9 +1021,15 @@
           selectStyle(selectedStyle);
           document.getElementById("url-card").style.display = "block";
 
-          // Sakrij setup samo ako ima ELO
+          // Sakrij setup ako ima ELO, ali pokazuj dugme za update
+          const setupCard = document.getElementById("setup-card");
+          const updateBtn = document.getElementById("btn-update-cookies");
           if (d.elo) {
-            document.getElementById("setup-card").style.display = "none";
+            setupCard.style.display = "none";
+            updateBtn.style.display = "inline-flex";
+          } else {
+            setupCard.style.display = "block";
+            updateBtn.style.display = "none";
           }
         } catch (e) {
           console.error(e);
