@@ -821,6 +821,22 @@
         </div>
       </div>
 
+      <!-- API KEY BANNER -->
+      <div id="api-key-banner" style="display:none;border:1px solid rgba(200,168,75,.3);border-left:3px solid var(--gold);background:rgba(200,168,75,.06);padding:20px 28px;margin-bottom:24px">
+        <div style="display:flex;align-items:flex-start;gap:16px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="flex-shrink:0;margin-top:2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div>
+            <div style="font-family:'Teko',sans-serif;font-size:20px;color:var(--gold);letter-spacing:1px;margin-bottom:6px">Steam API Key nije postavljen</div>
+            <div style="font-size:14px;color:var(--text-muted);line-height:1.7">
+              Bez API keya ELO se ne može automatski dohvatiti.<br>
+              <strong style="color:var(--text)">1.</strong> Idi na <a href="https://steamcommunity.com/dev/apikey" target="_blank" style="color:var(--gold)">steamcommunity.com/dev/apikey</a> — besplatan key, 30 sekundi<br>
+              <strong style="color:var(--text)">2.</strong> Na Railway → Variables → dodaj <code style="background:var(--bg3);padding:1px 6px;color:var(--gold)">STEAM_API_KEY=tvoj_key</code><br>
+              <strong style="color:var(--text)">3.</strong> Redeploy — ELO počinje raditi automatski
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- SETUP CARD -->
       <div class="setup-card" id="setup-card">
         <div class="setup-title">Aktiviraj ELO tracking</div>
@@ -1155,7 +1171,15 @@
         }
       }
 
+      async function checkStatus() {
+        try {
+          const d = await fetch("/api/status").then(r => r.json());
+          document.getElementById("api-key-banner").style.display = d.has_api_key ? "none" : "block";
+        } catch (e) {}
+      }
+
       loadUser();
+      checkStatus();
       setInterval(loadUser, 30000);
     </script>
   </body>

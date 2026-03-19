@@ -28,42 +28,98 @@ db.init_app(app)
 with app.app_context():
     db.create_all()
 
-REFRESH_SEC = 90
+REFRESH_SEC = 30
 
 
 # ── ELO FETCH ─────────────────────────────────────────────────────────────────
 
-GCPD_PATTERNS = [
-    r'Premier(?:[^<]{0,400}?)(\d{5,6})',
-    r'(\d{5,6})(?:[^<]{0,100}?)Premier',
+def _steam_session(cookies):
+    """Pravi requests.Session sa Steam cookies pravilno postavljenim (domain + path)."""
+    sess = requests.Session()
+    sess.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Referer": "https://steamcommunity.com/",
+    })
+    for name, val in cookies.items():
+        sess.cookies.set(name, val, domain=".steamcommunity.com", path="/")
+    return sess
+
+
+ELO_PATTERNS = [
     r'"cs_rating"\s*:\s*(\d+)',
     r'"premier_rating"\s*:\s*(\d+)',
-    r'"skillrating"\s*[>:,\s]+(\d{4,6})',
-    r'<td[^>]*>\s*(\d{5,6})\s*</td>',
+    r'"skillrating"\s*:\s*(\d+)',
+    r'cs_rating["\s]*[=:]\s*["\s]*(\d+)',
+    r'<name>cs_rating</name>[^<]*<value>(\d+)</value>',
+    r'rating_calibration_votes[^,}]*,\s*"cs_rating"\s*:\s*(\d+)',
 ]
 
+
+def _search_elo(text):
+    for pat in ELO_PATTERNS:
+        m = re.search(pat, text, re.IGNORECASE | re.DOTALL)
+        if m:
+            val = int(m.group(1))
+            if 1000 < val < 50000:
+                return val
+    return None
+
+
 def fetch_elo(steam_id, cookies):
-    """Fetchuje Premier ELO preko gcpd stranice koristeći Steam cookies."""
-    try:
-        sess = requests.Session()
-        sess.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Referer": "https://steamcommunity.com/",
-        })
-        sess.cookies.update(cookies)
-        url  = f"https://steamcommunity.com/profiles/{steam_id}/gcpd/730/?tab=matchmaking"
-        resp = sess.get(url, timeout=15)
-        html = resp.text
-        for p in GCPD_PATTERNS:
-            m = re.search(p, html, re.IGNORECASE | re.DOTALL)
-            if m:
-                val = int(m.group(1))
-                if 5000 < val < 40000:
-                    print(f"[ELO] gcpd {steam_id}: {val}")
-                    return val
-    except Exception as e:
-        print(f"[ELO] gcpd greska: {e}")
+    """
+    Prioritet:
+      1. Steam Web API  (ISteamUserStats)  — treba STEAM_API_KEY env var
+      2. GCPD render endpoint              — treba svjeze Steam cookies
+      3. GCPD stranica + XML stats         — fallback
+    """
+
+    # ── 1. Steam Web API ───────────────────────────────────────────────────────
+    api_key = os.environ.get("STEAM_API_KEY", "")
+    if api_key:
+        try:
+            url = (f"https://api.steampowered.com/ISteamUserStats/"
+                   f"GetUserStatsForGame/v2/?appid=730&steamid={steam_id}&key={api_key}")
+            resp = requests.get(url, timeout=10)
+            if resp.ok:
+                stats = {s["name"]: s["value"]
+                         for s in resp.json().get("playerstats", {}).get("stats", [])}
+                for stat in ("cs_rating", "premier_rating", "skillrating"):
+                    val = stats.get(stat, 0)
+                    if 1000 < val < 50000:
+                        print(f"[ELO] API {steam_id}: {val} ({stat})")
+                        return val
+                # Ispisi koji stat-ovi postoje radi debug-a
+                rating_stats = {k: v for k, v in stats.items() if "rating" in k.lower()}
+                print(f"[ELO] API {steam_id}: cs_rating nije tu. Rating stats: {rating_stats}")
+        except Exception as e:
+            print(f"[ELO] API greska: {e}")
+
+    # ── 2. GCPD ajax endpoint (vraca JSON sa HTML tablicom) ───────────────────
+    if cookies:
+        sess = _steam_session(cookies)
+        ajax_url = f"https://steamcommunity.com/profiles/{steam_id}/gcpd/730/?tab=matchmaking&ajax=1"
+        try:
+            resp = sess.get(ajax_url, timeout=15)
+            data = resp.json()
+            if data.get("success"):
+                html = data["html"]
+                # Format: <td>Premier</td><td>wins</td><td>ties</td><td>losses</td><td>ELO</td>
+                m = re.search(
+                    r'<td>Premier</td>(?:<td>[^<]*</td>){3}<td>(\d{4,6})</td>',
+                    html, re.IGNORECASE
+                )
+                if m:
+                    val = int(m.group(1))
+                    if 1000 < val < 50000:
+                        print(f"[ELO] GCPD ajax {steam_id}: {val}")
+                        return val
+        except Exception as e:
+            print(f"[ELO] GCPD ajax greska: {e}")
+
+    print(f"[ELO] {steam_id}: ELO nije pronadjen. Dodaj STEAM_API_KEY ili osvjezi cookies.")
     return None
 
 
@@ -71,10 +127,15 @@ def refresh_all_users():
     """Background thread - osvezava ELO za sve korisnike svakih REFRESH_SEC sekundi."""
     while True:
         with app.app_context():
-            users = User.query.filter(User.steam_cookies.isnot(None)).all()
+            has_api_key = bool(os.environ.get("STEAM_API_KEY", ""))
+            # Sa API kljucem fetchujemo sve usere, bez njega samo one sa cookies
+            if has_api_key:
+                users = User.query.all()
+            else:
+                users = User.query.filter(User.steam_cookies.isnot(None)).all()
             for user in users:
                 try:
-                    cookies = json.loads(user.steam_cookies)
+                    cookies = json.loads(user.steam_cookies) if user.steam_cookies else {}
                     elo = fetch_elo(user.steam_id, cookies)
                     if elo:
                         prev = user.current_elo
@@ -160,6 +221,12 @@ def logout():
 
 # ── API ───────────────────────────────────────────────────────────────────────
 
+
+@app.route("/api/status")
+def api_status():
+    return jsonify({"has_api_key": bool(os.environ.get("STEAM_API_KEY", ""))})
+
+
 @app.route("/api/me")
 def api_me():
     if "steam_id" not in session:
@@ -228,6 +295,33 @@ def api_elo(steam_id):
         "ts":       user.last_update.strftime("%H:%M") if user.last_update else None,
         "username": user.username,
     })
+
+
+@app.route("/api/set-elo", methods=["POST"])
+def set_elo_manual():
+    """Ručno postavljanje ELO-a kad automatski ne radi."""
+    if "steam_id" not in session:
+        return jsonify({"error": "not_logged_in"}), 401
+    data = request.get_json()
+    elo = data.get("elo")
+    try:
+        elo = int(elo)
+        if not (1000 < elo < 50000):
+            raise ValueError
+    except (TypeError, ValueError):
+        return jsonify({"error": "Nevažeći ELO (mora biti između 1000 i 50000)"}), 400
+
+    user = User.query.filter_by(steam_id=session["steam_id"]).first()
+    if not user:
+        return jsonify({"error": "user_not_found"}), 404
+
+    prev = user.current_elo
+    user.current_elo = elo
+    user.prev_elo    = prev
+    user.elo_diff    = (elo - prev) if prev else None
+    user.last_update = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"success": True, "elo": elo})
 
 
 # ── OVERLAY ───────────────────────────────────────────────────────────────────
