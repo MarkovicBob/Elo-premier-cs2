@@ -40,10 +40,18 @@ with app.app_context():
         ("session_elo",    "INTEGER"),
     ]
     with db.engine.connect() as conn:
-        existing = [row[1] for row in conn.execute(text("PRAGMA table_info(users)")).fetchall()]
+        dialect = db.engine.dialect.name  # 'sqlite' ili 'postgresql'
+        if dialect == "sqlite":
+            existing = [row[1] for row in conn.execute(text("PRAGMA table_info(users)")).fetchall()]
+        else:
+            rows = conn.execute(text(
+                "SELECT column_name FROM information_schema.columns WHERE table_name='users'"
+            )).fetchall()
+            existing = [row[0] for row in rows]
         for col, typ in new_cols:
             if col not in existing:
-                conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {typ}"))
+                pg_typ = typ.replace("INTEGER", "INTEGER").replace("VARCHAR(10)", "VARCHAR(10)")
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {pg_typ}"))
         conn.commit()
 
 REFRESH_SEC = 30
