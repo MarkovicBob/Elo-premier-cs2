@@ -401,13 +401,13 @@ def overlay(steam_id):
     # Common JS for all styles - tier color system
     js = f"""<script>
 const TIERS=[
-  {{min:30000,c:'#f5c518',bg:'linear-gradient(135deg,rgba(245,197,24,.22) 0%,rgba(14,10,0,.95) 60%)',  glow:'rgba(245,197,24,.55)' }},
-  {{min:25000,c:'#ef4444',bg:'linear-gradient(135deg,rgba(239,68,68,.22) 0%,rgba(14,2,2,.95) 60%)',   glow:'rgba(239,68,68,.55)' }},
-  {{min:20000,c:'#ff50ff',bg:'linear-gradient(135deg,rgba(255,80,255,.22) 0%,rgba(14,0,14,.95) 60%)', glow:'rgba(255,80,255,.55)'}},
-  {{min:15000,c:'#a855f7',bg:'linear-gradient(135deg,rgba(168,85,247,.22) 0%,rgba(8,0,18,.95) 60%)',  glow:'rgba(168,85,247,.55)'}},
-  {{min:10000,c:'#4a6cf7',bg:'linear-gradient(135deg,rgba(74,108,247,.22) 0%,rgba(2,6,20,.95) 60%)',  glow:'rgba(74,108,247,.55)' }},
-  {{min:5000, c:'#38bdf8',bg:'linear-gradient(135deg,rgba(56,189,248,.22) 0%,rgba(0,10,20,.95) 60%)', glow:'rgba(56,189,248,.55)'}},
-  {{min:0,    c:'#9ca3af',bg:'linear-gradient(135deg,rgba(156,163,175,.14) 0%,rgba(8,8,8,.95) 60%)',  glow:'rgba(156,163,175,.4)'}},
+  {{min:30000,c:'#f5c518',bg:'linear-gradient(to right,#f5c518 0%,#120d00 100%)',glow:'rgba(245,197,24,.7)' }},
+  {{min:25000,c:'#ef4444',bg:'linear-gradient(to right,#ef4444 0%,#140000 100%)',glow:'rgba(239,68,68,.7)' }},
+  {{min:20000,c:'#ff50ff',bg:'linear-gradient(to right,#ff50ff 0%,#1c0020 100%)',glow:'rgba(255,80,255,.7)'}},
+  {{min:15000,c:'#a855f7',bg:'linear-gradient(to right,#a855f7 0%,#0e0018 100%)',glow:'rgba(168,85,247,.7)'}},
+  {{min:10000,c:'#4a6cf7',bg:'linear-gradient(to right,#4a6cf7 0%,#020514 100%)',glow:'rgba(74,108,247,.7)' }},
+  {{min:5000, c:'#38bdf8',bg:'linear-gradient(to right,#38bdf8 0%,#000e1a 100%)',glow:'rgba(56,189,248,.7)'}},
+  {{min:0,    c:'#9ca3af',bg:'linear-gradient(to right,#9ca3af 0%,#080808 100%)',glow:'rgba(156,163,175,.5)'}},
 ];
 function T(e){{return TIERS.find(t=>e>=t.min)||TIERS[6];}}
 let last=null;
@@ -475,46 +475,37 @@ poll();setInterval(poll,15000);
 
     FONTS = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;700;900&family=Share+Tech+Mono&family=Orbitron:wght@700&display=swap"
 
-    # CS2 badge base CSS — shared across all styles
+    # CS2 parallelogram badge CSS — shared across all styles
     CS2 = ("html,body{width:1080px;height:1080px;margin:0;padding:0;overflow:hidden}"
-           "body{display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-end;"
-           "padding:0 40px 40px 0;position:relative}"
-           "#badge{--c:#9e9e9e;--bg:rgba(18,18,20,.82);--glow:rgba(158,158,158,.3);"
-           "display:inline-flex;flex-direction:column;align-items:stretch;"
-           "border-radius:6px;overflow:hidden;position:relative;"
-           "background:var(--bg);"
-           "backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);"
-           "border:1px solid rgba(255,255,255,.10);"
-           "border-left:3px solid var(--c);"
-           "box-shadow:0 8px 32px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.06),"
-           "0 0 40px var(--glow)}"
-           "#badge::after{content:'';position:absolute;inset:0;border-radius:6px;"
-           "background:linear-gradient(160deg,rgba(255,255,255,.06) 0%,transparent 50%);"
-           "pointer-events:none;z-index:2}"
-           ".badge-inner{display:flex;align-items:stretch;position:relative;z-index:1}"
-           ".micro{font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;"
-           "letter-spacing:4px;color:rgba(255,255,255,.35);text-transform:uppercase;"
-           "padding:12px 20px 0 20px;text-align:right}"
-           ".slash{display:flex;align-items:center;padding:6px 4px 14px 18px;"
-           "font-family:'Bebas Neue',sans-serif;font-size:70px;line-height:1;"
-           "letter-spacing:-10px;color:var(--c);transform:skewX(-10deg);"
-           "text-shadow:0 0 20px var(--glow)}"
-           ".num{display:flex;align-items:baseline;padding:6px 22px 14px 6px;"
-           "font-family:'Bebas Neue',sans-serif;line-height:1}"
-           ".big{font-size:96px;letter-spacing:-1px;color:var(--c);"
-           "-webkit-text-stroke:1.5px var(--c);text-shadow:0 0 20px var(--glow)}"
-           ".sep{font-size:96px;color:var(--c);-webkit-text-stroke:1.5px var(--c);margin:0 2px}"
-           ".small{font-size:82px;letter-spacing:1px;color:var(--c);"
-           "-webkit-text-stroke:1px var(--c);opacity:.85}"
+           "body{display:flex;align-items:flex-end;justify-content:flex-end;"
+           "padding:0 50px 50px 0;position:relative}"
+           # Outer parallelogram shape via skewX
+           "#badge{--c:#9ca3af;--bg:linear-gradient(to right,#9ca3af 0%,#080808 100%);"
+           "--glow:rgba(156,163,175,.5);"
+           "display:inline-block;transform:skewX(-10deg);border-radius:4px;"
+           "background:var(--bg);overflow:hidden;position:relative;"
+           "box-shadow:0 8px 40px rgba(0,0,0,.8),0 0 70px var(--glow)}"
+           # // accent strips via ::before (two bright vertical lines)
+           "#badge::before{content:'';position:absolute;left:20px;top:0;bottom:0;"
+           "width:5px;background:rgba(255,255,255,.9);"
+           "box-shadow:13px 0 0 5px rgba(255,255,255,.9);z-index:3;pointer-events:none}"
+           # Counter-skew inner so text is straight
+           ".bi{transform:skewX(10deg);display:flex;flex-direction:column;"
+           "padding:12px 40px 14px 58px;position:relative;z-index:1}"
+           ".micro{font-family:'Barlow',sans-serif;font-size:12px;font-weight:700;"
+           "letter-spacing:4px;color:rgba(255,255,255,.4);text-transform:uppercase;margin-bottom:4px}"
+           ".nr{display:flex;align-items:baseline}"
+           ".big{font-family:'Bebas Neue',sans-serif;font-size:96px;line-height:.9;"
+           "color:#fff;letter-spacing:-1px}"
+           ".sep{font-family:'Bebas Neue',sans-serif;font-size:96px;color:#fff;margin:0 1px}"
+           ".small{font-family:'Bebas Neue',sans-serif;font-size:82px;line-height:.9;"
+           "color:rgba(255,255,255,.88)}"
            "#s{display:none}")
 
-    BADGE_HTML = """<div id="badge" data-cssvar>
+    BADGE_HTML = """<div id="badge" data-cssvar><div class="bi">
 <div class="micro">PREMIER ELO</div>
-<div class="badge-inner">
-<div class="slash">//</div>
-<div class="num"><span id="e1" class="big bl">--</span><span class="sep">,</span><span id="e2" class="small">---</span></div>
-</div>
-</div>"""
+<div class="nr"><span id="e1" class="big bl">--</span><span class="sep">,</span><span id="e2" class="small">---</span></div>
+</div></div>"""
 
     if sid == 1:
         # Style 1 — samo CS2 badge
@@ -524,44 +515,36 @@ poll();setInterval(poll,15000);
     elif sid == 2:
         # Style 2 — CS2 badge + W/T/L danas
         css = (CS2 +
-               "#row{display:flex;gap:14px;padding:8px 20px 12px 20px;align-items:center;"
-               "font-family:'Barlow',sans-serif;border-top:1px solid rgba(255,255,255,.07);"
-               "position:relative;z-index:1}"
+               "#row{display:flex;gap:14px;margin-top:8px;padding-top:10px;align-items:center;"
+               "font-family:'Barlow',sans-serif;border-top:1px solid rgba(255,255,255,.07)}"
                ".wlt{font-size:34px;font-weight:900;letter-spacing:.5px;line-height:1}"
                "#sw{color:#00cc66}#sl2{color:#ff4444}#st{color:rgba(255,255,255,.4)}"
                ".div{color:rgba(255,255,255,.15);font-size:28px;font-weight:300;margin:0 2px}")
-        body = ("""<div id="badge" data-cssvar>
+        body = ("""<div id="badge" data-cssvar><div class="bi">
 <div class="micro">PREMIER ELO</div>
-<div class="badge-inner">
-<div class="slash">//</div>
-<div class="num"><span id="e1" class="big bl">--</span><span class="sep">,</span><span id="e2" class="small">---</span></div>
-</div>
+<div class="nr"><span id="e1" class="big bl">--</span><span class="sep">,</span><span id="e2" class="small">---</span></div>
 <div id="row">
 <span id="sw" class="wlt">W:-</span><span class="div">|</span>
 <span id="st" class="wlt">T:-</span><span class="div">|</span>
 <span id="sl2" class="wlt">L:-</span>
 </div>
-</div>""" + """<div id="b" style="display:none"></div><div id="s" style="display:none"></div>""")
+</div></div>""" + """<div id="b" style="display:none"></div><div id="s" style="display:none"></div>""")
 
     elif sid == 3:
         # Style 3 — CS2 badge + ELO diff danas
         css = (CS2 +
-               "#row{display:flex;align-items:center;gap:14px;padding:8px 20px 12px 20px;"
-               "font-family:'Barlow',sans-serif;border-top:1px solid rgba(255,255,255,.07);"
-               "position:relative;z-index:1}"
+               "#row{display:flex;align-items:center;gap:14px;margin-top:8px;padding-top:10px;"
+               "font-family:'Barlow',sans-serif;border-top:1px solid rgba(255,255,255,.07)}"
                ".lbl{font-size:13px;font-weight:700;letter-spacing:4px;"
                "color:rgba(255,255,255,.3);text-transform:uppercase}"
                "#elo_today{font-size:36px;font-weight:900;letter-spacing:.5px;line-height:1}")
-        body = ("""<div id="badge" data-cssvar>
+        body = ("""<div id="badge" data-cssvar><div class="bi">
 <div class="micro">PREMIER ELO</div>
-<div class="badge-inner">
-<div class="slash">//</div>
-<div class="num"><span id="e1" class="big bl">--</span><span class="sep">,</span><span id="e2" class="small">---</span></div>
-</div>
+<div class="nr"><span id="e1" class="big bl">--</span><span class="sep">,</span><span id="e2" class="small">---</span></div>
 <div id="row">
 <span class="lbl">DANAS</span><span id="elo_today" style="color:#9e9e9e">+0</span>
 </div>
-</div>""" + """<div id="b" style="display:none"></div><div id="s" style="display:none"></div>""")
+</div></div>""" + """<div id="b" style="display:none"></div><div id="s" style="display:none"></div>""")
 
     elif sid == 4:
         css = CS2
