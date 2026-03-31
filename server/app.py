@@ -6,7 +6,13 @@ Backend: Flask + Steam OpenID + SQLite/PostgreSQL
 
 from flask import Flask, redirect, request, session, jsonify, send_from_directory
 import requests, re, os, json, threading, time
-from datetime import datetime
+from datetime import datetime, timezone
+from dotenv import load_dotenv
+from zoneinfo import ZoneInfo
+
+BASE_DIR = os.path.dirname(__file__)
+load_dotenv(os.path.join(BASE_DIR, ".env"))
+
 from db import db, User
 from steam_auth import get_steam_profile
 
@@ -38,6 +44,11 @@ with app.app_context():
         ("session_ties",   "INTEGER DEFAULT 0"),
         ("session_date",   "VARCHAR(10)"),
         ("session_elo",    "INTEGER"),
+        ("today_wins",     "INTEGER DEFAULT 0"),
+        ("today_losses",   "INTEGER DEFAULT 0"),
+        ("today_ties",     "INTEGER DEFAULT 0"),
+        ("today_matches",  "INTEGER DEFAULT 0"),
+        ("today_date",     "VARCHAR(10)"),
     ]
     with db.engine.connect() as conn:
         dialect = db.engine.dialect.name  # 'sqlite' ili 'postgresql'
@@ -55,9 +66,40 @@ with app.app_context():
         conn.commit()
 
 REFRESH_SEC = 30
+APP_TIMEZONE_NAME = os.environ.get("APP_TIMEZONE", "Europe/Belgrade")
+try:
+    APP_TZ = ZoneInfo(APP_TIMEZONE_NAME)
+except Exception:
+    APP_TZ = datetime.now().astimezone().tzinfo or timezone.utc
 
 
 # ── ELO FETCH ─────────────────────────────────────────────────────────────────
+
+def utc_now():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _as_utc(dt):
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def local_day_key(dt=None):
+    base = _as_utc(dt) if dt else datetime.now(timezone.utc)
+    return base.astimezone(APP_TZ).strftime("%Y-%m-%d")
+
+
+def format_local_hm(dt):
+    if not dt:
+        return None
+    return _as_utc(dt).astimezone(APP_TZ).strftime("%H:%M")
+
+
+def parse_steam_gmt(value):
+    return datetime.strptime(value, "%Y-%m-%d %H:%M:%S GMT").replace(tzinfo=timezone.utc).astimezone(APP_TZ)
 
 def _steam_session(cookies):
     """Pravi requests.Session sa Steam cookies pravilno postavljenim (domain + path)."""
@@ -72,6 +114,54 @@ def _steam_session(cookies):
     for name, val in cookies.items():
         sess.cookies.set(name, val, domain=".steamcommunity.com", path="/")
     return sess
+
+
+def _cookie_value(sess, name):
+    for cookie in sess.cookies:
+        if cookie.name == name and "steamcommunity.com" in cookie.domain:
+            return cookie.value
+    return None
+
+
+def _refresh_steam_cookies(cookies):
+    """
+    Ako sessionid istekne, steamLoginSecure cesto moze da izvuce novi sessionid
+    bez novog rucnog copy/paste-a iz browsera.
+    """
+    if not cookies or not cookies.get("steamLoginSecure"):
+        return cookies
+
+    sess = requests.Session()
+    sess.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://steamcommunity.com/",
+    })
+    if cookies.get("sessionid"):
+        sess.cookies.set("sessionid", cookies["sessionid"], domain=".steamcommunity.com", path="/")
+    sess.cookies.set("steamLoginSecure", cookies["steamLoginSecure"], domain=".steamcommunity.com", path="/")
+
+    try:
+        sess.get("https://steamcommunity.com/", timeout=12)
+    except Exception:
+        return cookies
+
+    refreshed = dict(cookies)
+    new_sessionid = _cookie_value(sess, "sessionid")
+    new_login_secure = _cookie_value(sess, "steamLoginSecure")
+    if new_sessionid:
+        refreshed["sessionid"] = new_sessionid
+    if new_login_secure:
+        refreshed["steamLoginSecure"] = new_login_secure
+    return refreshed
+
+
+def _gcpd_json(sess, steam_id, tab, continue_token=None):
+    url = f"https://steamcommunity.com/profiles/{steam_id}/gcpd/730/?tab={tab}&ajax=1"
+    if continue_token:
+        url += f"&continue_token={continue_token}"
+    return sess.get(url, timeout=15).json()
 
 
 ELO_PATTERNS = [
@@ -94,15 +184,208 @@ def _search_elo(text):
     return None
 
 
+def _elo_payload(elo, wins=None, ties=None, losses=None):
+    payload = {"elo": int(elo)}
+    if wins is not None:
+        payload["wins"] = int(wins)
+    if ties is not None:
+        payload["ties"] = int(ties)
+    if losses is not None:
+        payload["losses"] = int(losses)
+    return payload
+
+
+def _split_premier_history_blocks(html):
+    parts = re.split(r'<tr>\s*<td class="val_left">', html)
+    return [f'<td class="val_left">{part}' for part in parts[1:]]
+
+
+def _parse_premier_match(block, steam_id):
+    ts_match = re.search(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} GMT)', block)
+    score_match = re.search(r'csgo_scoreboard_score">(\d+)\s*:\s*(\d+)<', block)
+    user_pos = block.find(f"/profiles/{steam_id}")
+    score_pos = block.find("csgo_scoreboard_score")
+
+    if not ts_match or not score_match or user_pos == -1 or score_pos == -1:
+        return None
+
+    left_score = int(score_match.group(1))
+    right_score = int(score_match.group(2))
+    player_on_left = user_pos < score_pos
+    player_score = left_score if player_on_left else right_score
+    enemy_score = right_score if player_on_left else left_score
+
+    if player_score > enemy_score:
+        result = "win"
+    elif player_score < enemy_score:
+        result = "loss"
+    else:
+        result = "tie"
+
+    local_dt = parse_steam_gmt(ts_match.group(1))
+    return {
+        "local_day": local_dt.strftime("%Y-%m-%d"),
+        "result": result,
+    }
+
+
+def _fetch_today_premier_stats(sess, steam_id, target_day=None, max_pages=6):
+    target_day = target_day or local_day_key()
+    wins = ties = losses = matches = 0
+    continue_token = None
+
+    for _ in range(max_pages):
+        data = _gcpd_json(sess, steam_id, "matchhistorypremier", continue_token=continue_token)
+        html = data.get("html", "")
+        if not data.get("success") or not html:
+            break
+
+        stop = False
+        for block in _split_premier_history_blocks(html):
+            match = _parse_premier_match(block, steam_id)
+            if not match:
+                continue
+            if match["local_day"] < target_day:
+                stop = True
+                break
+            if match["local_day"] > target_day:
+                continue
+
+            matches += 1
+            if match["result"] == "win":
+                wins += 1
+            elif match["result"] == "loss":
+                losses += 1
+            else:
+                ties += 1
+
+        if stop:
+            break
+
+        next_token = data.get("continue_token")
+        if not next_token or str(next_token) == str(continue_token):
+            break
+        continue_token = next_token
+
+    return {
+        "today_wins": wins,
+        "today_losses": losses,
+        "today_ties": ties,
+        "today_matches": matches,
+        "today_date": target_day,
+    }
+
+
+def _daily_overlay_stats(user):
+    today = local_day_key()
+
+    if user.today_date == today:
+        wins = user.today_wins or 0
+        losses = user.today_losses or 0
+        ties = user.today_ties or 0
+    else:
+        wins = max(0, (user.total_wins or 0) - (user.session_wins or 0))
+        losses = max(0, (user.total_losses or 0) - (user.session_losses or 0))
+        ties = max(0, (user.total_ties or 0) - (user.session_ties or 0))
+
+    if user.session_date == today and user.current_elo is not None:
+        start_elo = user.session_elo if user.session_elo is not None else user.current_elo
+        elo_today = (user.current_elo or 0) - start_elo
+    else:
+        elo_today = 0
+
+    return {
+        "session_w": wins,
+        "session_l": losses,
+        "session_t": ties,
+        "elo_today": elo_today,
+    }
+
+
+def _apply_elo_result(user, result, now=None):
+    """Upisuje sveze ELO podatke u bazu bez obzira na izvor."""
+    now = now or utc_now()
+    today = local_day_key(now)
+    new_day = user.session_date != today
+    has_match_stats = all(key in result for key in ("wins", "ties", "losses"))
+
+    elo = result["elo"]
+    prev = user.current_elo
+    prev_total_wins = user.total_wins or 0
+    prev_total_losses = user.total_losses or 0
+    prev_total_ties = user.total_ties or 0
+
+    if new_day:
+        user.session_date = today
+        user.session_elo = prev if prev is not None else elo
+        user.session_wins = prev_total_wins
+        user.session_losses = prev_total_losses
+        user.session_ties = prev_total_ties
+    elif user.session_elo is None:
+        user.session_elo = prev if prev is not None else elo
+        user.session_date = today
+
+    user.current_elo = elo
+    user.prev_elo = prev
+    user.elo_diff = (elo - prev) if prev is not None and prev != elo else None
+    user.last_update = now
+
+    if has_match_stats:
+        user.total_wins = result["wins"]
+        user.total_losses = result["losses"]
+        user.total_ties = result["ties"]
+
+    if result.get("today_date") == today:
+        user.today_date = today
+        user.today_wins = int(result.get("today_wins", 0))
+        user.today_losses = int(result.get("today_losses", 0))
+        user.today_ties = int(result.get("today_ties", 0))
+        user.today_matches = int(result.get("today_matches", 0))
+    elif new_day:
+        user.today_date = today
+        user.today_wins = 0
+        user.today_losses = 0
+        user.today_ties = 0
+        user.today_matches = 0
+
+    return elo
+
+
 def fetch_elo(steam_id, cookies):
     """
     Prioritet:
-      1. Steam Web API  (ISteamUserStats)  — treba STEAM_API_KEY env var
-      2. GCPD render endpoint              — treba svjeze Steam cookies
-      3. GCPD stranica + XML stats         — fallback
+      1. GCPD render endpoint              — kad korisnik poveze Steam cookies
+      2. Steam Web API  (ISteamUserStats)  — fallback kad postoji STEAM_API_KEY
     """
 
-    # ── 1. Steam Web API ───────────────────────────────────────────────────────
+    # ── 1. GCPD ajax endpoint (vraca JSON sa HTML tablicom) ───────────────────
+    if cookies:
+        refreshed_cookies = _refresh_steam_cookies(cookies)
+        sess = _steam_session(refreshed_cookies)
+        try:
+            data = _gcpd_json(sess, steam_id, "matchmaking")
+            if data.get("success"):
+                html = data["html"]
+                # Format: <td>Premier</td><td>wins</td><td>ties</td><td>losses</td><td>ELO</td>
+                m = re.search(
+                    r'<td>Premier</td><td>(\d+)</td><td>(\d+)</td><td>(\d+)</td><td>(\d{4,6})</td>',
+                    html, re.IGNORECASE
+                )
+                if m:
+                    wins = int(m.group(1))
+                    ties = int(m.group(2))
+                    losses = int(m.group(3))
+                    elo = int(m.group(4))
+                    if 1000 < elo < 50000:
+                        payload = _elo_payload(elo, wins=wins, ties=ties, losses=losses)
+                        payload.update(_fetch_today_premier_stats(sess, steam_id))
+                        payload["refreshed_cookies"] = refreshed_cookies
+                        print(f"[ELO] GCPD ajax {steam_id}: {elo} W:{wins} T:{ties} L:{losses}")
+                        return payload
+        except Exception as e:
+            print(f"[ELO] GCPD ajax greska: {e}")
+
+    # ── 2. Steam Web API ───────────────────────────────────────────────────────
     api_key = os.environ.get("STEAM_API_KEY", "")
     if api_key:
         try:
@@ -116,34 +399,15 @@ def fetch_elo(steam_id, cookies):
                     val = stats.get(stat, 0)
                     if 1000 < val < 50000:
                         print(f"[ELO] API {steam_id}: {val} ({stat})")
-                        return val
+                        payload = _elo_payload(val)
+                        if cookies:
+                            payload["refreshed_cookies"] = _refresh_steam_cookies(cookies)
+                        return payload
                 # Ispisi koji stat-ovi postoje radi debug-a
                 rating_stats = {k: v for k, v in stats.items() if "rating" in k.lower()}
                 print(f"[ELO] API {steam_id}: cs_rating nije tu. Rating stats: {rating_stats}")
         except Exception as e:
             print(f"[ELO] API greska: {e}")
-
-    # ── 2. GCPD ajax endpoint (vraca JSON sa HTML tablicom) ───────────────────
-    if cookies:
-        sess = _steam_session(cookies)
-        ajax_url = f"https://steamcommunity.com/profiles/{steam_id}/gcpd/730/?tab=matchmaking&ajax=1"
-        try:
-            resp = sess.get(ajax_url, timeout=15)
-            data = resp.json()
-            if data.get("success"):
-                html = data["html"]
-                # Format: <td>Premier</td><td>wins</td><td>ties</td><td>losses</td><td>ELO</td>
-                m = re.search(
-                    r'<td>Premier</td><td>(\d+)</td><td>(\d+)</td><td>(\d+)</td><td>(\d{4,6})</td>',
-                    html, re.IGNORECASE
-                )
-                if m:
-                    wins, ties, losses, elo = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))
-                    if 1000 < elo < 50000:
-                        print(f"[ELO] GCPD ajax {steam_id}: {elo} W:{wins} T:{ties} L:{losses}")
-                        return {"elo": elo, "wins": wins, "ties": ties, "losses": losses}
-        except Exception as e:
-            print(f"[ELO] GCPD ajax greska: {e}")
 
     print(f"[ELO] {steam_id}: ELO nije pronadjen. Dodaj STEAM_API_KEY ili osvjezi cookies.")
     return None
@@ -159,37 +423,27 @@ def refresh_all_users():
                 users = User.query.all()
             else:
                 users = User.query.filter(User.steam_cookies.isnot(None)).all()
-            today = datetime.utcnow().strftime("%Y-%m-%d")
             for user in users:
                 try:
                     cookies = json.loads(user.steam_cookies) if user.steam_cookies else {}
                     result = fetch_elo(user.steam_id, cookies)
-                    if result:
-                        elo = result["elo"]
-                        prev = user.current_elo
-                        user.current_elo = elo
-                        user.prev_elo    = prev
-                        user.elo_diff    = (elo - prev) if prev and prev != elo else None
-                        user.last_update = datetime.utcnow()
-                        # W/L/T tracking
-                        new_w = result.get("wins", 0)
-                        new_l = result.get("losses", 0)
-                        new_t = result.get("ties", 0)
-                        # Reset session baseline at start of new day
-                        if user.session_date != today:
-                            user.session_elo    = user.current_elo or elo
-                            user.session_wins   = new_w
-                            user.session_losses = new_l
-                            user.session_ties   = new_t
-                            user.session_date   = today
-                        user.total_wins   = new_w
-                        user.total_losses = new_l
-                        user.total_ties   = new_t
-                        db.session.commit()
-                        sw = new_w - (user.session_wins or new_w)
-                        sl = new_l - (user.session_losses or new_l)
-                        print(f"[refresh] {user.username}: {elo:,} | W:{sw} L:{sl} danas")
+                    if not result:
+                        continue
+
+                    elo = _apply_elo_result(user, result)
+                    if result.get("refreshed_cookies"):
+                        user.steam_cookies = json.dumps(result["refreshed_cookies"])
+                    db.session.commit()
+
+                    if result.get("today_date") == local_day_key():
+                        print(
+                            f"[refresh] {user.username}: {elo:,} | "
+                            f"W:{user.today_wins or 0} T:{user.today_ties or 0} L:{user.today_losses or 0} danas"
+                        )
+                    else:
+                        print(f"[refresh] {user.username}: {elo:,}")
                 except Exception as e:
+                    db.session.rollback()
                     print(f"[refresh] Greska {user.steam_id}: {e}")
         time.sleep(REFRESH_SEC)
 
@@ -289,6 +543,8 @@ def api_me():
     if not user:
         return jsonify({"error": "user_not_found"}), 404
 
+    daily = _daily_overlay_stats(user)
+
     return jsonify({
         "steam_id":    user.steam_id,
         "username":    user.username,
@@ -296,13 +552,10 @@ def api_me():
         "elo":         user.current_elo,
         "prev_elo":    user.prev_elo,
         "diff":        user.elo_diff,
-        "last_update": user.last_update.strftime("%H:%M") if user.last_update else None,
+        "last_update": format_local_hm(user.last_update),
         "has_setup":   bool(user.steam_cookies),
         "overlay_url": f"/overlay/{user.steam_id}",
-        "session_w":   max(0, (user.total_wins   or 0) - (user.session_wins   or 0)),
-        "session_l":   max(0, (user.total_losses or 0) - (user.session_losses or 0)),
-        "session_t":   max(0, (user.total_ties   or 0) - (user.session_ties   or 0)),
-        "elo_today":   (user.current_elo or 0) - (user.session_elo or user.current_elo or 0),
+        **daily,
     })
 
 
@@ -328,14 +581,15 @@ def save_cookies():
 
     # Odmah fetchuj ELO
     cookies = {"sessionid": session_id, "steamLoginSecure": login_sec}
-    elo = fetch_elo(session["steam_id"], cookies)
+    result = fetch_elo(session["steam_id"], cookies)
 
-    if elo:
-        user.current_elo = elo
-        user.last_update = datetime.utcnow()
+    if result:
+        _apply_elo_result(user, result)
+        if result.get("refreshed_cookies"):
+            user.steam_cookies = json.dumps(result["refreshed_cookies"])
         db.session.commit()
 
-    return jsonify({"success": True, "elo": elo})
+    return jsonify({"success": True, "elo": result["elo"] if result else None})
 
 
 @app.route("/api/elo/<steam_id>")
@@ -345,16 +599,15 @@ def api_elo(steam_id):
     if not user:
         return jsonify({"error": "user_not_found"}), 404
 
+    daily = _daily_overlay_stats(user)
+
     return jsonify({
         "elo":       user.current_elo,
         "prev":      user.prev_elo,
         "diff":      user.elo_diff,
-        "ts":        user.last_update.strftime("%H:%M") if user.last_update else None,
+        "ts":        format_local_hm(user.last_update),
         "username":  user.username,
-        "session_w": max(0, (user.total_wins   or 0) - (user.session_wins   or 0)),
-        "session_l": max(0, (user.total_losses or 0) - (user.session_losses or 0)),
-        "session_t": max(0, (user.total_ties   or 0) - (user.session_ties   or 0)),
-        "elo_today": (user.current_elo or 0) - (user.session_elo or user.current_elo or 0),
+        **daily,
     })
 
 
@@ -380,7 +633,7 @@ def set_elo_manual():
     user.current_elo = elo
     user.prev_elo    = prev
     user.elo_diff    = (elo - prev) if prev else None
-    user.last_update = datetime.utcnow()
+    user.last_update = utc_now()
     db.session.commit()
     return jsonify({"success": True, "elo": elo})
 
@@ -515,7 +768,8 @@ poll();setInterval(poll,15000);
     elif sid == 2:
         # Style 2 — CS2 badge + W/T/L danas
         css = (CS2 +
-               "#row{display:flex;gap:14px;margin-top:8px;padding-top:10px;align-items:center;"
+               "#badge .bi{padding:40px 44px 38px 58px}"
+               "#row{display:flex;gap:14px;margin-top:16px;padding-top:16px;align-items:center;"
                "font-family:'Barlow',sans-serif;border-top:1px solid rgba(255,255,255,.07)}"
                ".wlt{font-size:34px;font-weight:900;letter-spacing:.5px;line-height:1}"
                "#sw{color:#00cc66}#sl2{color:#ff4444}#st{color:rgba(255,255,255,.4)}"
@@ -533,7 +787,8 @@ poll();setInterval(poll,15000);
     elif sid == 3:
         # Style 3 — CS2 badge + ELO diff danas
         css = (CS2 +
-               "#row{display:flex;align-items:center;gap:14px;margin-top:8px;padding-top:10px;"
+               "#badge .bi{padding:40px 44px 38px 58px}"
+               "#row{display:flex;align-items:center;gap:14px;margin-top:16px;padding-top:16px;"
                "font-family:'Barlow',sans-serif;border-top:1px solid rgba(255,255,255,.07)}"
                ".lbl{font-size:13px;font-weight:700;letter-spacing:4px;"
                "color:rgba(255,255,255,.3);text-transform:uppercase}"
@@ -585,6 +840,8 @@ poll();setInterval(poll,15000);
     response.headers["Content-Type"] = "text/html; charset=utf-8"
     response.headers["ngrok-skip-browser-warning"] = "true"
     response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
     return response
 
 

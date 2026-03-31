@@ -1,8 +1,6 @@
 import requests
 import os
 
-STEAM_API_KEY = os.environ.get("STEAM_API_KEY", "")
-
 
 def validate_steam_login(params):
     """Verifikuje Steam OpenID response."""
@@ -15,9 +13,10 @@ def validate_steam_login(params):
 def get_steam_profile(steam_id):
     """Dohvata Steam profil podatke."""
     # Pokusaj sa API kljucem ako postoji
-    if STEAM_API_KEY:
+    steam_api_key = os.environ.get("STEAM_API_KEY", "")
+    if steam_api_key:
         try:
-            url  = f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={STEAM_API_KEY}&steamids={steam_id}"
+            url  = f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={steam_api_key}&steamids={steam_id}"
             resp = requests.get(url, timeout=10)
             data = resp.json()
             players = data.get("response", {}).get("players", [])

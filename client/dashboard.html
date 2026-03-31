@@ -15,12 +15,13 @@
         --gold-dim: #6b5a28;
         --red: #e03030;
         --green: #00cc66;
-        --bg: #080a0c;
-        --bg2: #0d1014;
-        --bg3: #111519;
+        --bg: #0b0f16;
+        --bg2: #131a24;
+        --bg3: #1a2330;
         --text: #e8e4d8;
-        --text-muted: #6b6860;
-        --border: rgba(200, 168, 75, 0.15);
+        --text-muted: #8a908e;
+        --border: rgba(200, 168, 75, 0.22);
+        --card-shadow: 0 28px 80px rgba(0, 0, 0, 0.28);
       }
       *,
       *::before,
@@ -30,7 +31,10 @@
         box-sizing: border-box;
       }
       body {
-        background: var(--bg);
+        background:
+          radial-gradient(circle at top left, rgba(240, 200, 96, 0.12), transparent 32%),
+          radial-gradient(circle at top right, rgba(104, 177, 255, 0.12), transparent 28%),
+          linear-gradient(180deg, #101722 0%, #0b1018 42%, #121926 100%);
         color: var(--text);
         font-family: "Rajdhani", sans-serif;
         min-height: 100vh;
@@ -43,8 +47,8 @@
           0deg,
           transparent,
           transparent 2px,
-          rgba(0, 0, 0, 0.06) 2px,
-          rgba(0, 0, 0, 0.06) 4px
+          rgba(0, 0, 0, 0.04) 2px,
+          rgba(0, 0, 0, 0.04) 4px
         );
         pointer-events: none;
         z-index: 1000;
@@ -56,7 +60,7 @@
         justify-content: space-between;
         padding: 20px 48px;
         border-bottom: 1px solid var(--border);
-        background: rgba(8, 10, 12, 0.9);
+        background: rgba(11, 15, 22, 0.82);
         backdrop-filter: blur(12px);
         position: sticky;
         top: 0;
@@ -103,9 +107,9 @@
       }
 
       .main {
-        max-width: 900px;
+        max-width: 1420px;
         margin: 0 auto;
-        padding: 64px 48px;
+        padding: 64px 24px 80px;
       }
 
       .page-tag {
@@ -129,13 +133,17 @@
       .elo-card {
         border: 1px solid var(--border);
         border-top: 3px solid var(--gold);
-        background: var(--bg2);
+        background: linear-gradient(145deg, rgba(22, 29, 40, 0.96), rgba(14, 19, 28, 0.94));
         padding: 40px;
         margin-bottom: 24px;
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 32px;
+        border-radius: 28px;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+        position: relative;
       }
       .elo-label {
         font-family: "Share Tech Mono", monospace;
@@ -213,59 +221,163 @@
 
       /* STYLE PICKER */
       .style-picker {
-        margin-bottom: 24px;
+        margin-bottom: 28px;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 30px;
+        background: linear-gradient(160deg, rgba(22, 29, 40, 0.96), rgba(11, 15, 22, 0.92) 55%, rgba(18, 24, 34, 0.96));
+        padding: 30px;
+        box-shadow: var(--card-shadow);
+      }
+      .style-picker::before {
+        content: "";
+        position: absolute;
+        width: 340px;
+        height: 340px;
+        left: -120px;
+        bottom: -150px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(240, 200, 96, 0.22), transparent 70%);
+        filter: blur(10px);
+        opacity: 0.8;
+      }
+      .style-picker::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 28%),
+          repeating-linear-gradient(90deg, transparent 0 92px, rgba(123, 197, 255, 0.05) 92px 93px);
+        opacity: 0.45;
+        pointer-events: none;
+      }
+      .style-picker-head {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 20px;
+      }
+      .style-picker-title {
+        font-family: "Teko", sans-serif;
+        font-size: 40px;
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: 0.5px;
+      }
+      .style-picker-copy {
+        max-width: 420px;
+        font-size: 15px;
+        color: var(--text-muted);
+        line-height: 1.7;
       }
       .style-grid {
+        position: relative;
+        z-index: 1;
         display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 8px;
-        margin-top: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 18px;
       }
       .style-btn {
         cursor: pointer;
-        border: 1px solid var(--border);
-        border-radius: 4px;
+        border: 1px solid rgba(240, 200, 96, 0.14);
+        border-radius: 24px;
         overflow: hidden;
-        transition: border-color 0.2s, transform 0.15s;
+        transition: border-color 0.25s, transform 0.2s, box-shadow 0.25s;
+        background: linear-gradient(180deg, rgba(20, 26, 36, 0.97), rgba(11, 15, 22, 0.94));
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
       }
-      .style-btn:hover { border-color: var(--gold-dim); transform: translateY(-1px); }
-      .style-btn.active { border-color: var(--gold); }
+      .style-btn:hover {
+        border-color: rgba(240, 200, 96, 0.45);
+        transform: translateY(-6px);
+        box-shadow: 0 26px 56px rgba(0, 0, 0, 0.28);
+      }
+      .style-btn.active {
+        border-color: var(--gold-bright);
+        box-shadow:
+          0 0 0 1px rgba(240, 200, 96, 0.45),
+          0 30px 64px rgba(0, 0, 0, 0.32),
+          0 0 40px rgba(240, 200, 96, 0.12);
+      }
       .style-preview {
         padding: 0;
         width: 100%;
-        aspect-ratio: 1 / 1;
+        aspect-ratio: 16 / 10;
         overflow: hidden;
         position: relative;
-        background: #060810;
+        background:
+          radial-gradient(circle at 18% 20%, rgba(90, 160, 255, 0.26), transparent 24%),
+          radial-gradient(circle at 80% 16%, rgba(240, 200, 96, 0.18), transparent 26%),
+          radial-gradient(circle at 52% 58%, rgba(40, 74, 110, 0.42), transparent 34%),
+          linear-gradient(140deg, #122131 0%, #0c1521 46%, #171728 100%);
+      }
+      .style-preview::before {
+        content: "LIVE PREVIEW";
+        position: absolute;
+        top: 14px;
+        left: 14px;
+        font-family: "Share Tech Mono", monospace;
+        font-size: 9px;
+        letter-spacing: 2px;
+        color: rgba(232, 228, 216, 0.72);
+        padding: 6px 8px;
+        border: 1px solid rgba(232, 228, 216, 0.12);
+        border-radius: 999px;
+        background: rgba(7, 11, 17, 0.45);
+        z-index: 3;
+      }
+      .style-preview::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 35%, rgba(7, 11, 17, 0.34) 100%),
+          repeating-linear-gradient(120deg, transparent 0 48px, rgba(255, 255, 255, 0.025) 48px 49px);
+        pointer-events: none;
+        z-index: 1;
       }
       .preview-iframe {
         position: absolute;
-        top: 0; left: 0;
-        width: 1080px; height: 1080px;
-        transform: scale(0.143);
-        transform-origin: top left;
+        right: 0;
+        bottom: 0;
+        width: 1080px;
+        height: 1080px;
+        transform: scale(0.58);
+        transform-origin: bottom right;
         border: none;
         pointer-events: none;
+        z-index: 2;
+        filter: drop-shadow(0 24px 28px rgba(0, 0, 0, 0.45));
+      }
+      .style-btn.preview-offset .preview-iframe {
+        bottom: -34px;
       }
       .style-name {
         font-family: "Share Tech Mono", monospace;
-        font-size: 9px;
-        letter-spacing: 1px;
-        color: var(--text-muted);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 2px;
+        color: rgba(232, 228, 216, 0.78);
         text-transform: uppercase;
-        padding: 5px 8px;
-        background: var(--bg3);
+        padding: 12px 16px;
+        background: linear-gradient(180deg, rgba(19, 25, 35, 0.96), rgba(13, 18, 26, 0.94));
         text-align: center;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
       }
 
       /* URL CARD */
       .url-card {
         border: 1px solid var(--border);
         border-left: 3px solid var(--green);
-        background: var(--bg2);
+        background: linear-gradient(150deg, rgba(22, 29, 40, 0.96), rgba(11, 15, 22, 0.93));
         padding: 32px 40px;
         margin-bottom: 24px;
         display: none;
+        border-radius: 28px;
+        box-shadow: var(--card-shadow);
       }
       .url-title {
         font-family: "Teko", sans-serif;
@@ -323,9 +435,11 @@
       /* SETUP CARD */
       .setup-card {
         border: 1px solid var(--border);
-        background: var(--bg2);
+        background: linear-gradient(150deg, rgba(22, 29, 40, 0.96), rgba(11, 15, 22, 0.93));
         padding: 40px;
         margin-bottom: 24px;
+        border-radius: 28px;
+        box-shadow: var(--card-shadow);
       }
       .setup-title {
         font-family: "Teko", sans-serif;
@@ -694,6 +808,67 @@
         border-radius: 3px;
         color: var(--gold);
       }
+
+      @media (max-width: 980px) {
+        nav {
+          padding: 16px 20px;
+        }
+        .main {
+          padding: 42px 16px 64px;
+        }
+        .elo-card {
+          flex-direction: column;
+          align-items: flex-start;
+          padding: 30px 24px;
+        }
+        .elo-value {
+          font-size: 76px;
+        }
+        .style-picker {
+          padding: 22px;
+          border-radius: 24px;
+        }
+        .style-picker-head {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .style-picker-title {
+          font-size: 34px;
+        }
+        .style-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 14px;
+        }
+        .preview-iframe {
+          transform: scale(0.5);
+        }
+        .style-btn.preview-offset .preview-iframe {
+          bottom: -26px;
+        }
+      }
+
+      @media (max-width: 600px) {
+        .page-title {
+          font-size: 44px;
+          margin-bottom: 32px;
+        }
+        .style-grid {
+          grid-template-columns: 1fr;
+        }
+        .style-preview {
+          min-height: 190px;
+        }
+        .preview-iframe {
+          transform: scale(0.56);
+        }
+        .style-btn.preview-offset .preview-iframe {
+          bottom: -20px;
+        }
+        .url-card,
+        .setup-card {
+          padding: 24px 20px;
+        }
+      }
     </style>
   </head>
   <body>
@@ -727,17 +902,26 @@
 
       <!-- STYLE PICKER -->
       <div class="style-picker">
-        <div class="page-tag">// IZABERI IZGLED OVERLAYA</div>
+        <div class="style-picker-head">
+          <div>
+            <div class="page-tag">// IZABERI IZGLED OVERLAYA</div>
+            <h2 class="style-picker-title">Kako overlay izgleda na streamu</h2>
+          </div>
+          <p class="style-picker-copy">
+            Veći preview sada pokazuje overlay preko stilizovane scene, pa možeš
+            odmah da vidiš koji fazon najbolje leži bez prazne crne površine.
+          </p>
+        </div>
         <div class="style-grid">
           <div class="style-btn active" id="style-btn-1" onclick="selectStyle(1)">
             <div class="style-preview"><iframe id="preview-1" class="preview-iframe" src="about:blank" scrolling="no"></iframe></div>
             <div class="style-name">Style 1</div>
           </div>
-          <div class="style-btn" id="style-btn-2" onclick="selectStyle(2)">
+          <div class="style-btn preview-offset" id="style-btn-2" onclick="selectStyle(2)">
             <div class="style-preview"><iframe id="preview-2" class="preview-iframe" src="about:blank" scrolling="no"></iframe></div>
             <div class="style-name">Style 2 — W/T/L</div>
           </div>
-          <div class="style-btn" id="style-btn-3" onclick="selectStyle(3)">
+          <div class="style-btn preview-offset" id="style-btn-3" onclick="selectStyle(3)">
             <div class="style-preview"><iframe id="preview-3" class="preview-iframe" src="about:blank" scrolling="no"></iframe></div>
             <div class="style-name">Style 3 — ELO danas</div>
           </div>
@@ -800,10 +984,10 @@
           <div>
             <div style="font-family:'Teko',sans-serif;font-size:20px;color:var(--gold);letter-spacing:1px;margin-bottom:6px">Steam API Key nije postavljen</div>
             <div style="font-size:14px;color:var(--text-muted);line-height:1.7">
-              Bez API keya ELO se ne može automatski dohvatiti.<br>
+              Aplikacija može raditi i preko povezanih Steam cookiesa, ali API key je stabilniji fallback ako cookies isteknu.<br>
               <strong style="color:var(--text)">1.</strong> Idi na <a href="https://steamcommunity.com/dev/apikey" target="_blank" style="color:var(--gold)">steamcommunity.com/dev/apikey</a> — besplatan key, 30 sekundi<br>
               <strong style="color:var(--text)">2.</strong> Na Railway → Variables → dodaj <code style="background:var(--bg3);padding:1px 6px;color:var(--gold)">STEAM_API_KEY=tvoj_key</code><br>
-              <strong style="color:var(--text)">3.</strong> Redeploy — ELO počinje raditi automatski
+              <strong style="color:var(--text)">3.</strong> Redeploy — API update više ne zavisi od trajanja cookiesa
             </div>
           </div>
         </div>
@@ -813,7 +997,7 @@
       <div class="setup-card" id="setup-card">
         <div class="setup-title">Aktiviraj ELO tracking</div>
         <div class="setup-desc">
-          Izaberi jedan od dva načina — oba rade jednako dobro.
+          Poveži Steam cookies za live ELO. API key je opcion, ali koristan kao fallback.
         </div>
 
           <!-- COOKIES -->
@@ -945,6 +1129,7 @@
       let overlayUrl = "";
       let steamId = "";
       let selectedStyle = 1;
+      const previewVersion = Date.now();
 
       function selectStyle(n) {
         selectedStyle = n;
@@ -985,7 +1170,9 @@
 
             for (let i = 1; i <= 10; i++) {
               const f = document.getElementById('preview-' + i);
-              if (f && !f.src.includes('/overlay/')) f.src = `/overlay/${d.steam_id}?style=${i}`;
+              if (f && !f.src.includes('/overlay/')) {
+                f.src = `/overlay/${d.steam_id}?style=${i}&preview=${previewVersion}`;
+              }
             }
           }
 

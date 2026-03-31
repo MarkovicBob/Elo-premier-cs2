@@ -26,6 +26,11 @@ class User(db.Model):
     session_ties   = db.Column(db.Integer, default=0)
     session_date   = db.Column(db.String(10))            # YYYY-MM-DD of last reset
     session_elo    = db.Column(db.Integer)               # ELO at start of current day
+    today_wins     = db.Column(db.Integer, default=0)
+    today_losses   = db.Column(db.Integer, default=0)
+    today_ties     = db.Column(db.Integer, default=0)
+    today_matches  = db.Column(db.Integer, default=0)
+    today_date     = db.Column(db.String(10))
 
     def __repr__(self):
         return f"<User {self.username} ({self.steam_id}) ELO={self.current_elo}>"
