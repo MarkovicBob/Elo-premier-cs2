@@ -23,7 +23,8 @@ def get_steam_profile(steam_id):
             if players:
                 return players[0]
         except Exception as e:
-            print(f"[Steam] Profile API greska: {e}")
+            # Ne ispisuj requests URL jer sadrzi STEAM_API_KEY query parametar.
+            print(f"[Steam] Profile API greska ({type(e).__name__}): Steam API nije dostupan.")
 
     # Fallback: javni XML profil (ne zahtijeva API kljuc)
     try:

@@ -129,7 +129,7 @@ try {
                     }
                 }
                 catch {
-                    # Flask se jos pokrece; pokusaj ponovo.
+                    # FastAPI se jos pokrece; pokusaj ponovo.
                 }
 
                 Start-Sleep -Milliseconds 250

@@ -14,10 +14,6 @@ venv/
 env/
 .venv/
 
-# Flask
-server/flask_session/
-flask_session/
-
 # Database
 *.db
 *.sqlite

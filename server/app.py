@@ -1,37 +1,82 @@
 """
 ELO.LIVE - CS2 Premier ELO Overlay
 =====================================
-Backend: Flask + Steam OpenID + SQLite/PostgreSQL
+Backend: FastAPI + Steam OpenID + SQLite/PostgreSQL
 """
 
-from flask import Flask, redirect, request, session, jsonify, send_from_directory
-import requests, re, os, json, threading, time
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from dotenv import load_dotenv
+import json
+import os
+from pathlib import Path
+import re
+import threading
+import time
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
+from dotenv import load_dotenv
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+import requests
+from starlette.middleware.sessions import SessionMiddleware
+import uvicorn
+
 BASE_DIR = os.path.dirname(__file__)
+CLIENT_DIR = Path(BASE_DIR).parent.joinpath("client").resolve()
+LOCAL_DIR = Path(BASE_DIR).joinpath("local").resolve()
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 from db import db, User
 from steam_auth import get_steam_profile
 
-app = Flask(__name__, static_folder="../client", template_folder="../client")
+
+_refresh_stop_event = threading.Event()
+
+
+@asynccontextmanager
+async def lifespan(_app):
+    initialize_database()
+    _refresh_stop_event.clear()
+    refresh_thread = threading.Thread(target=refresh_all_users, daemon=True)
+    refresh_thread.start()
+    try:
+        yield
+    finally:
+        _refresh_stop_event.set()
+        refresh_thread.join(timeout=2)
+        db.session.remove()
+
+
+app = FastAPI(title="ELO.LIVE", lifespan=lifespan)
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
-app.config["SECRET_KEY"]              = os.environ.get("SECRET_KEY", "dev-secret-change-in-prod")
 _db_url = os.environ.get("DATABASE_URL", "sqlite:///elo.db")
 if _db_url.startswith("postgres://"):
     _db_url = _db_url.replace("postgres://", "postgresql+pg8000://", 1)
 elif _db_url.startswith("postgresql://") and "+pg8000" not in _db_url:
     _db_url = _db_url.replace("postgresql://", "postgresql+pg8000://", 1)
-app.config["SQLALCHEMY_DATABASE_URI"] = _db_url
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["SESSION_COOKIE_SECURE"]   = os.environ.get("RAILWAY_ENVIRONMENT") is not None
-db.init_app(app)
 
-with app.app_context():
+# Zadrzavamo dosadasnju lokaciju relativne SQLite baze u server/instance/
+# kako migracija ne bi napravila praznu bazu na drugom mjestu.
+if _db_url.startswith("sqlite:///"):
+    sqlite_path = _db_url[len("sqlite:///"):]
+    if not os.path.isabs(sqlite_path):
+        sqlite_file = Path(BASE_DIR).joinpath("instance", sqlite_path).resolve()
+        sqlite_file.parent.mkdir(parents=True, exist_ok=True)
+        _db_url = f"sqlite:///{sqlite_file.as_posix()}"
+
+db.configure(_db_url)
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.environ.get("SECRET_KEY", "dev-secret-change-in-prod"),
+    same_site="lax",
+    https_only=os.environ.get("RAILWAY_ENVIRONMENT") is not None,
+)
+
+
+def initialize_database():
     db.create_all()
     # Auto-migrate: dodaj nove kolone ako ne postoje (SQLite ne podrzava ALTER TABLE ADD IF NOT EXISTS)
     from sqlalchemy import text
@@ -515,7 +560,8 @@ def fetch_elo(steam_id, cookies):
             else:
                 print(f"[ELO] API {steam_id}: HTTP {resp.status_code} {resp.text[:120]}")
         except Exception as e:
-            print(f"[ELO] API greska: {e}")
+            # Requests izuzeci mogu sadrzati puni URL sa STEAM_API_KEY vrijednoscu.
+            print(f"[ELO] API greska ({type(e).__name__}): Steam API nije dostupan.")
 
     print(f"[ELO] {steam_id}: ELO nije pronadjen. Dodaj STEAM_API_KEY ili osvjezi cookies.")
     return None
@@ -523,8 +569,8 @@ def fetch_elo(steam_id, cookies):
 
 def refresh_all_users():
     """Background thread - osvezava ELO za sve korisnike svakih REFRESH_SEC sekundi."""
-    while True:
-        with app.app_context():
+    while not _refresh_stop_event.is_set():
+        try:
             has_api_key = bool(os.environ.get("STEAM_API_KEY", ""))
             # Sa API kljucem fetchujemo sve usere, bez njega samo one sa cookies
             if has_api_key:
@@ -544,57 +590,66 @@ def refresh_all_users():
                     )
                 else:
                     print(f"[refresh] {refreshed_user.username}: {refreshed_user.current_elo:,}")
-        time.sleep(REFRESH_SEC)
+        except Exception as exc:
+            db.session.rollback()
+            print(f"[refresh] Background greska: {exc}")
+        finally:
+            db.session.remove()
+
+        _refresh_stop_event.wait(REFRESH_SEC)
 
 
-threading.Thread(target=refresh_all_users, daemon=True).start()
-
-
-@app.after_request
-def disable_api_cache(response):
-    if request.path.startswith("/api/"):
-        response.headers["Cache-Control"] = "no-store, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-    return response
+@app.middleware("http")
+async def database_and_cache_middleware(request, call_next):
+    session_token = db.begin_request()
+    try:
+        response = await call_next(request)
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
+    finally:
+        db.end_request(session_token)
 
 
 # ── ROUTES ────────────────────────────────────────────────────────────────────
 
-@app.route("/", methods=["GET", "POST"])
-def index():
-    if "steam_id" in session:
-        return redirect("/dashboard")
-    return send_from_directory("../client", "index.html")
+@app.api_route("/", methods=["GET", "POST"])
+def index(request: Request):
+    if "steam_id" in request.session:
+        return RedirectResponse("/dashboard", status_code=302)
+    return FileResponse(CLIENT_DIR / "index.html")
 
 
-@app.route("/login/steam")
-def login_steam():
-    return_url = request.host_url.rstrip("/") + "/auth/steam/callback"
-    steam_url  = (
-        "https://steamcommunity.com/openid/login"
-        "?openid.ns=http://specs.openid.net/auth/2.0"
-        "&openid.mode=checkid_setup"
-        f"&openid.return_to={return_url}"
-        f"&openid.realm={request.host_url}"
-        "&openid.identity=http://specs.openid.net/auth/2.0/identifier_select"
-        "&openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select"
-    )
-    return redirect(steam_url)
+@app.get("/login/steam")
+def login_steam(request: Request):
+    host_url = str(request.base_url)
+    return_url = host_url.rstrip("/") + "/auth/steam/callback"
+    steam_params = {
+        "openid.ns": "http://specs.openid.net/auth/2.0",
+        "openid.mode": "checkid_setup",
+        "openid.return_to": return_url,
+        "openid.realm": host_url,
+        "openid.identity": "http://specs.openid.net/auth/2.0/identifier_select",
+        "openid.claimed_id": "http://specs.openid.net/auth/2.0/identifier_select",
+    }
+    steam_url = f"https://steamcommunity.com/openid/login?{urlencode(steam_params)}"
+    return RedirectResponse(steam_url, status_code=302)
 
 
-@app.route("/auth/steam/callback")
-def steam_callback():
-    params = dict(request.args)
+@app.get("/auth/steam/callback")
+def steam_callback(request: Request):
+    params = dict(request.query_params)
     params["openid.mode"] = "check_authentication"
     resp = requests.post("https://steamcommunity.com/openid/login", data=params, timeout=10)
     if "is_valid:true" not in resp.text:
-        return "Steam login failed.", 401
+        return HTMLResponse("Steam login failed.", status_code=401)
 
-    claimed_id = request.args.get("openid.claimed_id", "")
+    claimed_id = request.query_params.get("openid.claimed_id", "")
     steam_id   = claimed_id.split("/")[-1]
     if not steam_id.isdigit():
-        return "Invalid Steam ID.", 400
+        return HTMLResponse("Invalid Steam ID.", status_code=400)
 
     profile = get_steam_profile(steam_id)
 
@@ -607,57 +662,63 @@ def steam_callback():
     user.avatar_url = profile.get("avatarfull", "")
     db.session.commit()
 
-    session["steam_id"] = steam_id
-    session["username"] = user.username
-    session["avatar"]   = user.avatar_url
+    request.session["steam_id"] = steam_id
+    request.session["username"] = user.username
+    request.session["avatar"]   = user.avatar_url
 
-    return redirect("/dashboard")
-
-
-@app.route("/dashboard")
-def dashboard():
-    if "steam_id" not in session:
-        return redirect("/")
-    return send_from_directory("../client", "dashboard.html")
+    return RedirectResponse("/dashboard", status_code=302)
 
 
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect("/")
+@app.get("/dashboard")
+def dashboard(request: Request):
+    if "steam_id" not in request.session:
+        return RedirectResponse("/", status_code=302)
+    return FileResponse(CLIENT_DIR / "dashboard.html")
+
+
+@app.get("/logout")
+def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse("/", status_code=302)
 
 
 # ── API ───────────────────────────────────────────────────────────────────────
 
 
-@app.route("/api/status")
+@app.get("/api/status")
 def api_status():
-    return jsonify({"has_api_key": bool(os.environ.get("STEAM_API_KEY", ""))})
+    return {"has_api_key": bool(os.environ.get("STEAM_API_KEY", ""))}
 
 
-@app.route("/local/<path:filename>")
+@app.get("/local/{filename:path}")
 def serve_local(filename):
     """Servira fajlove iz server/local/ foldera (gitignored, za custom assets)."""
-    local_dir = os.path.join(os.path.dirname(__file__), "local")
-    return send_from_directory(local_dir, filename)
+    target = LOCAL_DIR.joinpath(filename).resolve()
+    try:
+        target.relative_to(LOCAL_DIR)
+    except ValueError:
+        return HTMLResponse("Not found", status_code=404)
+    if not target.is_file():
+        return HTMLResponse("Not found", status_code=404)
+    return FileResponse(target)
 
 
-@app.route("/api/me")
-def api_me():
-    if "steam_id" not in session:
-        return jsonify({"error": "not_logged_in"}), 401
+@app.get("/api/me")
+def api_me(request: Request):
+    if "steam_id" not in request.session:
+        return JSONResponse({"error": "not_logged_in"}, status_code=401)
 
     user, _ = _refresh_user_from_source(
-        session["steam_id"],
+        request.session["steam_id"],
         max_age=ON_DEMAND_REFRESH_SEC,
         min_interval=ON_DEMAND_REFRESH_SEC,
     )
     if not user:
-        return jsonify({"error": "user_not_found"}), 404
+        return JSONResponse({"error": "user_not_found"}, status_code=404)
 
     daily = _daily_overlay_stats(user)
 
-    return jsonify({
+    return {
         "steam_id":    user.steam_id,
         "username":    user.username,
         "avatar":      user.avatar_url,
@@ -668,40 +729,45 @@ def api_me():
         "has_setup":   bool(user.steam_cookies),
         "overlay_url": f"/overlay/{user.steam_id}",
         **daily,
-    })
+    }
 
 
-@app.route("/api/save-cookies", methods=["POST"])
-def save_cookies():
+@app.post("/api/save-cookies")
+def save_cookies(request: Request, data: dict):
     """Korisnik unosi Steam cookies kao alternativu API kljucu."""
-    if "steam_id" not in session:
-        return jsonify({"error": "not_logged_in"}), 401
+    if "steam_id" not in request.session:
+        return JSONResponse({"error": "not_logged_in"}, status_code=401)
 
-    data       = request.get_json()
     session_id = data.get("sessionid", "").strip()
     login_sec  = data.get("steamLoginSecure", "").strip()
 
     if not session_id or not login_sec:
-        return jsonify({"error_code": "missing_fields", "error": "Fill in both fields."}), 400
+        return JSONResponse(
+            {"error_code": "missing_fields", "error": "Fill in both fields."},
+            status_code=400,
+        )
 
-    user = User.query.filter_by(steam_id=session["steam_id"]).first()
+    user = User.query.filter_by(steam_id=request.session["steam_id"]).first()
     cookies = {"sessionid": session_id, "steamLoginSecure": login_sec}
-    result = fetch_elo(session["steam_id"], cookies)
+    result = fetch_elo(request.session["steam_id"], cookies)
 
     if not result or result.get("source") != "gcpd":
-        return jsonify({
-            "error_code": "invalid_cookies",
-            "error": "The Steam cookies are invalid or cannot access the GCPD page. Copy fresh sessionid and steamLoginSecure values from your currently signed-in browser."
-        }), 400
+        return JSONResponse(
+            {
+                "error_code": "invalid_cookies",
+                "error": "The Steam cookies are invalid or cannot access the GCPD page. Copy fresh sessionid and steamLoginSecure values from your currently signed-in browser.",
+            },
+            status_code=400,
+        )
 
     user.steam_cookies = json.dumps(result.get("refreshed_cookies") or cookies)
     _apply_elo_result(user, result)
     db.session.commit()
 
-    return jsonify({"success": True, "elo": result["elo"]})
+    return {"success": True, "elo": result["elo"]}
 
 
-@app.route("/api/elo/<steam_id>")
+@app.get("/api/elo/{steam_id}")
 def api_elo(steam_id):
     """Javni endpoint za overlay."""
     user, _ = _refresh_user_from_source(
@@ -710,37 +776,39 @@ def api_elo(steam_id):
         min_interval=ON_DEMAND_REFRESH_SEC,
     )
     if not user:
-        return jsonify({"error": "user_not_found"}), 404
+        return JSONResponse({"error": "user_not_found"}, status_code=404)
 
     daily = _daily_overlay_stats(user)
 
-    return jsonify({
+    return {
         "elo":       user.current_elo,
         "prev":      user.prev_elo,
         "diff":      user.elo_diff,
         "ts":        format_local_hm(user.last_update),
         "username":  user.username,
         **daily,
-    })
+    }
 
 
-@app.route("/api/set-elo", methods=["POST"])
-def set_elo_manual():
+@app.post("/api/set-elo")
+def set_elo_manual(request: Request, data: dict):
     """Ručno postavljanje ELO-a kad automatski ne radi."""
-    if "steam_id" not in session:
-        return jsonify({"error": "not_logged_in"}), 401
-    data = request.get_json()
+    if "steam_id" not in request.session:
+        return JSONResponse({"error": "not_logged_in"}, status_code=401)
     elo = data.get("elo")
     try:
         elo = int(elo)
         if not (1000 < elo < 50000):
             raise ValueError
     except (TypeError, ValueError):
-        return jsonify({"error": "Invalid ELO (must be between 1000 and 50000)"}), 400
+        return JSONResponse(
+            {"error": "Invalid ELO (must be between 1000 and 50000)"},
+            status_code=400,
+        )
 
-    user = User.query.filter_by(steam_id=session["steam_id"]).first()
+    user = User.query.filter_by(steam_id=request.session["steam_id"]).first()
     if not user:
-        return jsonify({"error": "user_not_found"}), 404
+        return JSONResponse({"error": "user_not_found"}, status_code=404)
 
     prev = user.current_elo
     user.current_elo = elo
@@ -748,19 +816,19 @@ def set_elo_manual():
     user.elo_diff    = (elo - prev) if prev else None
     user.last_update = utc_now()
     db.session.commit()
-    return jsonify({"success": True, "elo": elo})
+    return {"success": True, "elo": elo}
 
 
 # ── OVERLAY ───────────────────────────────────────────────────────────────────
 
-@app.route("/overlay/<steam_id>")
-def overlay(steam_id):
+@app.get("/overlay/{steam_id}")
+def overlay(steam_id, request: Request):
     user = User.query.filter_by(steam_id=steam_id).first()
     if not user:
-        return "User not found", 404
+        return HTMLResponse("User not found", status_code=404)
 
     try:
-        sid = max(1, min(10, int(request.args.get("style", 1))))
+        sid = max(1, min(10, int(request.query_params.get("style", 1))))
     except (ValueError, TypeError):
         sid = 1
 
@@ -949,15 +1017,17 @@ poll();setInterval(poll,15000);
 {js}
 </body></html>"""
 
-    response = app.make_response(html)
-    response.headers["Content-Type"] = "text/html; charset=utf-8"
-    response.headers["ngrok-skip-browser-warning"] = "true"
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Cache-Control"] = "no-store, max-age=0"
-    response.headers["Pragma"] = "no-cache"
-    return response
+    return HTMLResponse(
+        html,
+        headers={
+            "ngrok-skip-browser-warning": "true",
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "no-store, max-age=0",
+            "Pragma": "no-cache",
+        },
+    )
 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    uvicorn.run(app, host="0.0.0.0", port=port)
