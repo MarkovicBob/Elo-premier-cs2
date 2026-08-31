@@ -1,0 +1,8 @@
+{
+  "name": "elo-premier",
+  "private": true,
+  "scripts": {
+    "dev": "powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File ./start.ps1",
+    "start": "powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File ./start.ps1"
+  }
+}
