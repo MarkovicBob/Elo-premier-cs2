@@ -119,6 +119,49 @@
         color: var(--gold);
       }
 
+      .language-switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-family: "Share Tech Mono", monospace;
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+
+      .language-switch button {
+        border: 0;
+        padding: 4px 2px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        letter-spacing: 1px;
+        cursor: pointer;
+      }
+
+      .language-switch button:hover,
+      .language-switch button.active {
+        color: var(--gold);
+      }
+
+      @media (max-width: 700px) {
+        nav {
+          padding: 16px 18px;
+        }
+        .nav-links {
+          gap: 14px;
+        }
+        .nav-links a {
+          font-size: 9px;
+          letter-spacing: 1px;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .nav-links li:not(:last-child) {
+          display: none;
+        }
+      }
+
       /* ── HERO ── */
       .hero {
         min-height: 100vh;
@@ -904,10 +947,15 @@
     <nav>
       <a href="#" class="nav-logo">ELO<span>.</span>LIVE</a>
       <ul class="nav-links">
-        <li><a href="#how">HOW IT WORKS</a></li>
-        <li><a href="#preview">PREVIEW</a></li>
-        <li><a href="/login/steam">LOGIN</a></li>
+        <li><a href="#how" data-i18n="nav.how">HOW IT WORKS</a></li>
+        <li><a href="#preview" data-i18n="nav.preview">PREVIEW</a></li>
+        <li><a href="/login/steam" data-i18n="nav.login">LOGIN</a></li>
       </ul>
+      <div class="language-switch" aria-label="Language selector">
+        <button type="button" data-language="en">EN</button>
+        <span>/</span>
+        <button type="button" data-language="sr">SR</button>
+      </div>
     </nav>
 
     <!-- TICKER -->
@@ -947,9 +995,9 @@
           <span class="line3">OVERLAY</span>
         </h1>
 
-        <p class="hero-sub">
-          Prikaži svoj <strong>Premier ELO uživo</strong> na streamu.<br />
-          Prijavi se jednom. Radi zauvek.
+        <p class="hero-sub" data-i18n-html="home.hero_sub">
+          Show your <strong>Premier ELO live</strong> on stream.<br />
+          Log in once. It keeps working.
         </p>
 
         <a href="/login/steam" class="btn-steam">
@@ -962,25 +1010,25 @@
               d="M12 0C5.37 0 0 5.37 0 12c0 5.52 3.72 10.19 8.83 11.59L12.5 17c-.17-.01-.34-.02-.5-.02-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5c0 .17-.01.34-.02.5l-6.5 3.65C11.32 16.04 12 16 12 16c3.31 0 6-2.69 6-6S15.31 4 12 4s-6 2.69-6 6H4C4 6.48 7.58 3 12 3s8 3.58 8 8-3.58 8-8 8c-.27 0-.53-.01-.79-.04l-3.68 2.07C8.47 21.63 10.19 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z"
             />
           </svg>
-          <span>Login with Steam</span>
+          <span data-i18n="home.login_steam">Login with Steam</span>
         </a>
 
         <div class="stats-bar">
           <div class="stat-item">
             <span class="stat-num" id="cnt-users">0</span>
-            <span class="stat-label">Active Streamers</span>
+            <span class="stat-label" data-i18n="home.active_streamers">Active Streamers</span>
           </div>
           <div class="stat-item">
             <span class="stat-num">LIVE</span>
-            <span class="stat-label">Real-time ELO</span>
+            <span class="stat-label" data-i18n="home.realtime_elo">Real-time ELO</span>
           </div>
           <div class="stat-item">
             <span class="stat-num">3</span>
-            <span class="stat-label">Platforms</span>
+            <span class="stat-label" data-i18n="home.platforms">Platforms</span>
           </div>
           <div class="stat-item">
             <span class="stat-num">FREE</span>
-            <span class="stat-label">Forever</span>
+            <span class="stat-label" data-i18n="home.forever">Forever</span>
           </div>
         </div>
       </div>
@@ -989,7 +1037,7 @@
     <!-- HOW IT WORKS -->
     <section class="section" id="how">
       <div class="section-tag">// PROCESS</div>
-      <h2 class="section-title">Kako funkcioniše</h2>
+      <h2 class="section-title" data-i18n="home.how_title">How it works</h2>
 
       <div class="steps">
         <div class="step">
@@ -1005,10 +1053,10 @@
             <path d="M24 14v10l6 6" />
             <path d="M14 24h2M32 24h2M24 14v2M24 32v2" />
           </svg>
-          <div class="step-title">Prijavi se sa Steamom</div>
-          <div class="step-desc">
-            Jedan klik, bez lozinke. Koristimo zvaničan Steam OpenID — tvoji
-            podaci su bezbedni.
+          <div class="step-title" data-i18n="home.step_login_title">Log in with Steam</div>
+          <div class="step-desc" data-i18n="home.step_login_desc">
+            One click, no password. We use official Steam OpenID, so your
+            account details stay secure.
           </div>
         </div>
         <div class="step">
@@ -1024,10 +1072,10 @@
             <path d="M16 20h16M16 28h8" />
             <circle cx="36" cy="20" r="3" fill="currentColor" stroke="none" />
           </svg>
-          <div class="step-title">Dobij svoj URL</div>
-          <div class="step-desc">
-            Generišemo jedinstveni Browser Source link koji je vezan za tvoj
-            Steam profil.
+          <div class="step-title" data-i18n="home.step_url_title">Get your URL</div>
+          <div class="step-desc" data-i18n="home.step_url_desc">
+            We generate a unique Browser Source link connected to your Steam
+            profile.
           </div>
         </div>
         <div class="step">
@@ -1044,10 +1092,10 @@
             <rect x="12" y="14" width="24" height="16" rx="1" />
             <path d="M18 18h6M18 22h12M18 26h8" />
           </svg>
-          <div class="step-title">Dodaj u stream</div>
-          <div class="step-desc">
-            Nalepi URL u TikTok Live Studio, Streamlabs ili OBS kao Browser
-            Source. Gotovo.
+          <div class="step-title" data-i18n="home.step_stream_title">Add it to your stream</div>
+          <div class="step-desc" data-i18n="home.step_stream_desc">
+            Paste the URL into TikTok Live Studio, Streamlabs, or OBS as a
+            Browser Source. Done.
           </div>
         </div>
       </div>
@@ -1097,13 +1145,13 @@
         </div>
 
         <div class="preview-text">
-          <h3>
-            Izgleda ovako<br />na tvojim
-            <span style="color: var(--gold)">livestreamovima</span>
+          <h3 data-i18n-html="home.preview_title">
+            This is how it looks<br />on your
+            <span style="color: var(--gold)">livestreams</span>
           </h3>
-          <p>
-            Transparentan overlay koji se uklapa uz svaki layout. ELO se
-            osvežava automatski svakih 2 minuta bez ikakvog pritiska dugmeta.
+          <p data-i18n="home.preview_copy">
+            A transparent overlay that fits any layout. Your ELO refreshes
+            automatically every 2 minutes, with no button presses.
           </p>
           <div class="url-example">elo.live/overlay/76561198858083261</div>
         </div>
@@ -1112,15 +1160,15 @@
 
     <!-- CTA -->
     <section class="cta-section">
-      <h2 class="cta-title">Spreman za<br /><em>live?</em></h2>
-      <p class="cta-sub">Besplatno. Zauvek. Bez instalacije.</p>
+      <h2 class="cta-title" data-i18n-html="home.cta_title">Ready to go<br /><em>live?</em></h2>
+      <p class="cta-sub" data-i18n="home.cta_sub">Free. Forever. No installation.</p>
       <a href="/login/steam" class="btn-steam">
         <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
           <path
             d="M12 0C5.37 0 0 5.37 0 12c0 5.52 3.72 10.19 8.83 11.59L12.5 17c-.17-.01-.34-.02-.5-.02-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5c0 .17-.01.34-.02.5l-6.5 3.65C11.32 16.04 12 16 12 16c3.31 0 6-2.69 6-6S15.31 4 12 4s-6 2.69-6 6H4C4 6.48 7.58 3 12 3s8 3.58 8 8-3.58 8-8 8c-.27 0-.53-.01-.79-.04l-3.68 2.07C8.47 21.63 10.19 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z"
           />
         </svg>
-        <span>Login with Steam</span>
+        <span data-i18n="home.login_steam">Login with Steam</span>
       </a>
     </section>
 
@@ -1131,6 +1179,7 @@
       <div class="footer-text">© 2026 ELO.LIVE</div>
     </footer>
 
+    <script src="/client/i18n.js"></script>
     <script>
       // Custom cursor
       const cursor = document.getElementById("cursor");

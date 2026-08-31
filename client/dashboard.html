@@ -106,6 +106,28 @@
         border-color: var(--red);
       }
 
+      .language-switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-family: "Share Tech Mono", monospace;
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+      .language-switch button {
+        border: 0;
+        padding: 4px 2px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        letter-spacing: 1px;
+        cursor: pointer;
+      }
+      .language-switch button:hover,
+      .language-switch button.active {
+        color: var(--gold);
+      }
+
       .main {
         max-width: 1420px;
         margin: 0 auto;
@@ -848,6 +870,12 @@
       }
 
       @media (max-width: 600px) {
+        .nav-right {
+          gap: 10px;
+        }
+        .nav-username {
+          display: none;
+        }
         .page-title {
           font-size: 44px;
           margin-bottom: 32px;
@@ -875,15 +903,20 @@
     <nav>
       <a href="/" class="nav-logo">ELO.LIVE</a>
       <div class="nav-right">
+        <div class="language-switch" aria-label="Language selector">
+          <button type="button" data-language="en">EN</button>
+          <span>/</span>
+          <button type="button" data-language="sr">SR</button>
+        </div>
         <img id="nav-avatar" class="nav-avatar" src="" alt="" />
         <span id="nav-username" class="nav-username">loading...</span>
-        <a href="/logout" class="btn-logout">Logout</a>
+        <a href="/logout" class="btn-logout" data-i18n="nav.logout">Logout</a>
       </div>
     </nav>
 
     <div class="main">
       <div class="page-tag">// DASHBOARD</div>
-      <h1 class="page-title">Tvoj Premier ELO</h1>
+      <h1 class="page-title" data-i18n="dashboard.title">Your Premier ELO</h1>
 
       <!-- ELO CARD -->
       <div class="elo-card">
@@ -891,8 +924,8 @@
           <div class="elo-label">Current Premier Rating</div>
           <div class="elo-value" id="elo-display">---</div>
           <div class="elo-diff" id="elo-diff"></div>
-          <div class="elo-meta" id="elo-meta">
-            Osvežava se automatski svakih 90s
+          <div class="elo-meta" id="elo-meta" data-i18n="dashboard.auto_refresh">
+            Refreshes automatically every 90s
           </div>
         </div>
         <div id="status-wrap">
@@ -904,12 +937,12 @@
       <div class="style-picker">
         <div class="style-picker-head">
           <div>
-            <div class="page-tag">// IZABERI IZGLED OVERLAYA</div>
-            <h2 class="style-picker-title">Kako overlay izgleda na streamu</h2>
+            <div class="page-tag" data-i18n="dashboard.style_tag">// CHOOSE YOUR OVERLAY STYLE</div>
+            <h2 class="style-picker-title" data-i18n="dashboard.style_title">How your overlay looks on stream</h2>
           </div>
-          <p class="style-picker-copy">
-            Veći preview sada pokazuje overlay preko stilizovane scene, pa možeš
-            odmah da vidiš koji fazon najbolje leži bez prazne crne površine.
+          <p class="style-picker-copy" data-i18n="dashboard.style_copy">
+            The larger preview shows each overlay on a stylized scene, so you
+            can immediately see which look fits best.
           </p>
         </div>
         <div class="style-grid">
@@ -923,7 +956,7 @@
           </div>
           <div class="style-btn preview-offset" id="style-btn-3" onclick="selectStyle(3)">
             <div class="style-preview"><iframe id="preview-3" class="preview-iframe" src="about:blank" scrolling="no"></iframe></div>
-            <div class="style-name">Style 3 — ELO danas</div>
+            <div class="style-name" data-i18n="dashboard.style_three">Style 3 — ELO today</div>
           </div>
           <div class="style-btn" id="style-btn-4" onclick="selectStyle(4)">
             <div class="style-preview"><iframe id="preview-4" class="preview-iframe" src="about:blank" scrolling="no"></iframe></div>
@@ -958,23 +991,22 @@
 
       <!-- OVERLAY URL CARD -->
       <div class="url-card" id="url-card">
-        <div class="url-title">// TVOJ BROWSER SOURCE URL</div>
+        <div class="url-title" data-i18n="dashboard.url_title">// YOUR BROWSER SOURCE URL</div>
         <div class="url-box">
           <div class="url-text" id="overlay-url-text"></div>
           <button class="btn-copy" id="btn-copy" onclick="copyUrl()">
             COPY
           </button>
         </div>
-        <div class="url-note">
-          Dodaj ovaj URL u <strong>TikTok Live Studio</strong>,
-          <strong>Streamlabs</strong> ili <strong>OBS</strong> kao Browser
-          Source.
+        <div class="url-note" data-i18n-html="dashboard.url_note">
+          Add this URL to <strong>TikTok Live Studio</strong>,
+          <strong>Streamlabs</strong>, or <strong>OBS</strong> as a Browser Source.
         </div>
       </div>
 
       <!-- UPDATE COOKIES BTN -->
       <button id="btn-update-cookies" onclick="document.getElementById('setup-card').style.display='block';this.style.display='none'" style="display:none;align-items:center;gap:8px;background:transparent;border:1px solid var(--border);color:var(--text-muted);font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;padding:8px 20px;cursor:pointer;margin-bottom:16px;transition:all .2s">
-        ↺ AŽURIRAJ COOKIES
+        <span data-i18n="dashboard.update_cookies">↺ UPDATE COOKIES</span>
       </button>
 
       <!-- API KEY BANNER -->
@@ -982,12 +1014,12 @@
         <div style="display:flex;align-items:flex-start;gap:16px">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="flex-shrink:0;margin-top:2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           <div>
-            <div style="font-family:'Teko',sans-serif;font-size:20px;color:var(--gold);letter-spacing:1px;margin-bottom:6px">Steam API Key nije postavljen</div>
-            <div style="font-size:14px;color:var(--text-muted);line-height:1.7">
-              Aplikacija može raditi i preko povezanih Steam cookiesa, ali API key je stabilniji fallback ako cookies isteknu.<br>
-              <strong style="color:var(--text)">1.</strong> Idi na <a href="https://steamcommunity.com/dev/apikey" target="_blank" style="color:var(--gold)">steamcommunity.com/dev/apikey</a> — besplatan key, 30 sekundi<br>
-              <strong style="color:var(--text)">2.</strong> Na Railway → Variables → dodaj <code style="background:var(--bg3);padding:1px 6px;color:var(--gold)">STEAM_API_KEY=tvoj_key</code><br>
-              <strong style="color:var(--text)">3.</strong> Redeploy — API update više ne zavisi od trajanja cookiesa
+            <div style="font-family:'Teko',sans-serif;font-size:20px;color:var(--gold);letter-spacing:1px;margin-bottom:6px" data-i18n="dashboard.api_key_missing">Steam API Key is not configured</div>
+            <div style="font-size:14px;color:var(--text-muted);line-height:1.7" data-i18n-html="dashboard.api_key_help">
+              The app can also work with connected Steam cookies, but an API key is a more reliable fallback if the cookies expire.<br>
+              <strong style="color:var(--text)">1.</strong> Go to <a href="https://steamcommunity.com/dev/apikey" target="_blank" style="color:var(--gold)">steamcommunity.com/dev/apikey</a> — it is free and takes about 30 seconds<br>
+              <strong style="color:var(--text)">2.</strong> In Railway → Variables, add <code style="background:var(--bg3);padding:1px 6px;color:var(--gold)">STEAM_API_KEY=your_key</code><br>
+              <strong style="color:var(--text)">3.</strong> Redeploy — API updates will no longer depend on cookie lifetime
             </div>
           </div>
         </div>
@@ -995,9 +1027,9 @@
 
       <!-- SETUP CARD -->
       <div class="setup-card" id="setup-card">
-        <div class="setup-title">Aktiviraj ELO tracking</div>
-        <div class="setup-desc">
-          Poveži Steam cookies za live ELO. API key je opcion, ali koristan kao fallback.
+        <div class="setup-title" data-i18n="dashboard.setup_title">Enable ELO tracking</div>
+        <div class="setup-desc" data-i18n="dashboard.setup_desc">
+          Connect your Steam cookies for live ELO. The API key is optional, but useful as a fallback.
         </div>
 
           <!-- COOKIES -->
@@ -1005,8 +1037,8 @@
           <div class="steps-mini">
             <div class="step-mini">
               <div class="step-mini-num">01 //</div>
-              <div class="step-mini-text">
-                Otvori <a href="https://steamcommunity.com/login/home/" target="_blank" style="color:var(--gold)">steamcommunity.com</a> i povezi tvoj Steam nalog
+              <div class="step-mini-text" data-i18n-html="dashboard.open_steam">
+                Open <a href="https://steamcommunity.com/login/home/" target="_blank" style="color:var(--gold)">steamcommunity.com</a> and sign in to your Steam account
               </div>
             </div>
             <div class="step-mini">
@@ -1015,8 +1047,8 @@
             </div>
             <div class="step-mini">
               <div class="step-mini-num">03 //</div>
-              <div class="step-mini-text">
-                Kopiraj sessionid i steamLoginSecure
+              <div class="step-mini-text" data-i18n="dashboard.copy_cookies">
+                Copy sessionid and steamLoginSecure
               </div>
             </div>
           </div>
@@ -1026,7 +1058,8 @@
               class="form-input"
               id="input-sessionid"
               type="text"
-              placeholder="npr. 8d3af9c0bfd508070f3a0aea"
+              placeholder="e.g. 8d3af9c0bfd508070f3a0aea"
+              data-i18n-placeholder="dashboard.session_placeholder"
             />
           </div>
           <div class="form-group">
@@ -1040,7 +1073,7 @@
           </div>
           <!-- ANIMATED TUTORIAL -->
           <div class="tutorial-wrap">
-            <div class="tutorial-title">// KAO OVO:</div>
+            <div class="tutorial-title" data-i18n="dashboard.tutorial_title">// LIKE THIS:</div>
             <div class="tutorial-screen">
               <!-- Fake Chrome window -->
               <div class="chrome-bar">
@@ -1105,19 +1138,19 @@
                 </div>
               </div>
               <!-- Step indicator -->
-              <div class="tut-step-badge" id="tut-step-badge">KORAK 1 / 4</div>
+              <div class="tut-step-badge" id="tut-step-badge">STEP 1 / 4</div>
               <!-- Cursor -->
               <div class="tut-cursor" id="tut-cursor"></div>
               <!-- Highlight box -->
               <div class="tut-highlight" id="tut-highlight"></div>
             </div>
             <div class="tut-caption" id="tut-caption">
-              Pritisni <kbd>F12</kbd> da otvoriš DevTools
+              Press <kbd>F12</kbd> to open DevTools
             </div>
           </div>
 
           <button class="btn-save" onclick="saveCookies()">
-            <span>Sačuvaj cookies</span>
+            <span data-i18n="dashboard.save_cookies">Save cookies</span>
           </button>
         </div>
 
@@ -1125,11 +1158,16 @@
       </div>
     </div>
 
+    <script src="/client/i18n.js"></script>
     <script>
       let overlayUrl = "";
       let steamId = "";
       let selectedStyle = 1;
       const previewVersion = Date.now();
+
+      function t(key, variables) {
+        return window.EloI18n.t(key, variables);
+      }
 
       function selectStyle(n) {
         selectedStyle = n;
@@ -1159,12 +1197,12 @@
             document.getElementById("elo-display").textContent =
               d.elo.toLocaleString("en-US");
             document.getElementById("elo-meta").textContent =
-              "Poslednje osvežavanje: " + (d.last_update || "--:--");
+              t("dashboard.last_refresh", { value: d.last_update || "--:--" });
 
             if (d.diff && d.diff !== 0) {
               const el = document.getElementById("elo-diff");
-              el.textContent =
-                (d.diff > 0 ? "+" : "") + d.diff + " od prošle provere";
+              const signedDiff = (d.diff > 0 ? "+" : "") + d.diff;
+              el.textContent = t("dashboard.since_last_check", { diff: signedDiff });
               el.className = "elo-diff " + (d.diff > 0 ? "pos" : "neg");
             }
 
@@ -1205,7 +1243,7 @@
       function copyUrl() {
         navigator.clipboard.writeText(overlayUrl).then(() => {
           const btn = document.getElementById("btn-copy");
-          btn.textContent = "COPIED!";
+          btn.textContent = t("dashboard.copied");
           btn.classList.add("copied");
           setTimeout(() => {
             btn.textContent = "COPY";
@@ -1217,17 +1255,16 @@
       // ── TUTORIAL ANIMATION ───────────────────────────────────────────────────────
       const tutSteps = [
         {
-          badge: "KORAK 1 / 4",
-          caption: "Pritisni <kbd>F12</kbd> da otvoriš Chrome DevTools",
+          number: 1,
+          captionKey: "tutorial.open_devtools",
           cursor: { top: "80px", left: "50%" },
           highlight: { display: "none" },
           activeRow: null,
           showPanel: false,
         },
         {
-          badge: "KORAK 2 / 4",
-          caption:
-            "Klikni <strong>Application</strong> tab, zatim <strong>Cookies → steamcommunity</strong>",
+          number: 2,
+          captionKey: "tutorial.open_application",
           cursor: { top: "52px", left: "190px" },
           highlight: {
             top: "45px",
@@ -1241,8 +1278,8 @@
           showPanel: false,
         },
         {
-          badge: "KORAK 3 / 4",
-          caption: "Pronađi <strong>sessionid</strong> i kopiraj vrednost",
+          number: 3,
+          captionKey: "tutorial.copy_session",
           cursor: { top: "108px", left: "180px" },
           highlight: {
             top: "103px",
@@ -1256,9 +1293,8 @@
           showPanel: false,
         },
         {
-          badge: "KORAK 4 / 4",
-          caption:
-            "Pronađi <strong>steamLoginSecure</strong> — klikni da vidiš punu vrednost dole",
+          number: 4,
+          captionKey: "tutorial.copy_login",
           cursor: { top: "125px", left: "180px" },
           highlight: {
             top: "121px",
@@ -1286,8 +1322,8 @@
 
         if (!badge) return;
 
-        badge.textContent = step.badge;
-        caption.innerHTML = step.caption;
+        badge.textContent = t("tutorial.step", { step: step.number });
+        caption.innerHTML = t(step.captionKey);
 
         cursor.style.top = step.cursor.top;
         cursor.style.left = step.cursor.left;
@@ -1316,7 +1352,7 @@
           .getElementById("input-loginsecure")
           .value.trim();
         if (!sessionid || !steamLoginSecure) {
-          showMsg("Popuni oba polja!", "error");
+          showMsg(t("message.fill_both"), "error");
           return;
         }
         try {
@@ -1327,17 +1363,19 @@
           });
           const d = await r.json();
           if (d.success) {
-            showMsg(
-              "Uspešno! ELO: " +
-                (d.elo ? d.elo.toLocaleString("en-US") : "fetchuje se..."),
-              "success",
-            );
+            const elo = d.elo
+              ? d.elo.toLocaleString("en-US")
+              : t("message.fetching");
+            showMsg(t("message.success", { elo }), "success");
             setTimeout(loadUser, 1500);
           } else {
-            showMsg("Greška: " + (d.error || "nepoznata"), "error");
+            const error = d.error_code
+              ? t("error." + d.error_code)
+              : d.error || t("message.unknown");
+            showMsg(t("message.error", { error }), "error");
           }
         } catch (e) {
-          showMsg("Mrežna greška.", "error");
+          showMsg(t("message.network"), "error");
         }
       }
 
@@ -1351,6 +1389,10 @@
       loadUser();
       checkStatus();
       setInterval(loadUser, 30000);
+      document.addEventListener("elo:language-changed", () => {
+        loadUser();
+        runTutorial();
+      });
     </script>
   </body>
 </html>

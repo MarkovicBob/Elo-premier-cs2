@@ -96,8 +96,15 @@ try {
         Set-Content -LiteralPath $requirementsStamp -Value $requirementsHash -NoNewline -Encoding Ascii
     }
 
-    if (Test-TcpPortInUse -TcpPort $Port) {
-        throw "Port $Port je vec zauzet. Probaj: .\start.cmd -Port 5001"
+    $requestedPort = $Port
+    while (Test-TcpPortInUse -TcpPort $Port) {
+        Write-Host "Port $Port je zauzet, proveravam sledeci..." -ForegroundColor Yellow
+
+        if ($Port -eq 65535) {
+            throw "Nema slobodnog porta u opsegu od $requestedPort do 65535."
+        }
+
+        $Port++
     }
 
     $env:PORT = $Port.ToString()

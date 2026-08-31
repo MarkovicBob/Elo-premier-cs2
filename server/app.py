@@ -589,12 +589,12 @@ def steam_callback():
     params["openid.mode"] = "check_authentication"
     resp = requests.post("https://steamcommunity.com/openid/login", data=params, timeout=10)
     if "is_valid:true" not in resp.text:
-        return "Steam login nije uspeo.", 401
+        return "Steam login failed.", 401
 
     claimed_id = request.args.get("openid.claimed_id", "")
     steam_id   = claimed_id.split("/")[-1]
     if not steam_id.isdigit():
-        return "Neispravan Steam ID.", 400
+        return "Invalid Steam ID.", 400
 
     profile = get_steam_profile(steam_id)
 
@@ -682,7 +682,7 @@ def save_cookies():
     login_sec  = data.get("steamLoginSecure", "").strip()
 
     if not session_id or not login_sec:
-        return jsonify({"error": "Popuni oba polja"}), 400
+        return jsonify({"error_code": "missing_fields", "error": "Fill in both fields."}), 400
 
     user = User.query.filter_by(steam_id=session["steam_id"]).first()
     cookies = {"sessionid": session_id, "steamLoginSecure": login_sec}
@@ -690,7 +690,8 @@ def save_cookies():
 
     if not result or result.get("source") != "gcpd":
         return jsonify({
-            "error": "Steam cookies nisu vazeci ili nemaju pristup GCPD stranici. Kopiraj sveze sessionid i steamLoginSecure iz trenutno ulogovanog browsera."
+            "error_code": "invalid_cookies",
+            "error": "The Steam cookies are invalid or cannot access the GCPD page. Copy fresh sessionid and steamLoginSecure values from your currently signed-in browser."
         }), 400
 
     user.steam_cookies = json.dumps(result.get("refreshed_cookies") or cookies)
@@ -735,7 +736,7 @@ def set_elo_manual():
         if not (1000 < elo < 50000):
             raise ValueError
     except (TypeError, ValueError):
-        return jsonify({"error": "Nevažeći ELO (mora biti između 1000 i 50000)"}), 400
+        return jsonify({"error": "Invalid ELO (must be between 1000 and 50000)"}), 400
 
     user = User.query.filter_by(steam_id=session["steam_id"]).first()
     if not user:
@@ -909,7 +910,7 @@ poll();setInterval(poll,15000);
 <div class="micro">PREMIER ELO</div>
 <div class="nr"><span id="e1" class="big bl">--</span><span class="sep">,</span><span id="e2" class="small">---</span></div>
 <div id="row">
-<span class="lbl">DANAS</span><span id="elo_today" style="color:#9e9e9e">+0</span>
+<span class="lbl">TODAY</span><span id="elo_today" style="color:#9e9e9e">+0</span>
 </div>
 </div></div>""" + """<div id="b" style="display:none"></div><div id="s" style="display:none"></div>""")
 
