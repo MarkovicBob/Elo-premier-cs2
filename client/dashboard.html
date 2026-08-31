@@ -1143,7 +1143,7 @@
 
       async function loadUser() {
         try {
-          const r = await fetch("/api/me");
+          const r = await fetch("/api/me?_=" + Date.now(), { cache: "no-store" });
           if (r.status === 401) {
             window.location = "/";
             return;

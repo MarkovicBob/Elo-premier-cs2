@@ -66,14 +66,23 @@ with app.app_context():
         conn.commit()
 
 REFRESH_SEC = 30
+ON_DEMAND_REFRESH_SEC = max(10, int(os.environ.get("ON_DEMAND_REFRESH_SEC", "15")))
 APP_TIMEZONE_NAME = os.environ.get("APP_TIMEZONE", "Europe/Belgrade")
 try:
     APP_TZ = ZoneInfo(APP_TIMEZONE_NAME)
 except Exception:
     APP_TZ = datetime.now().astimezone().tzinfo or timezone.utc
 
+_refresh_locks = {}
+_refresh_locks_guard = threading.Lock()
+_refresh_attempts = {}
+
 
 # ── ELO FETCH ─────────────────────────────────────────────────────────────────
+
+
+class SteamSessionExpiredError(Exception):
+    pass
 
 def utc_now():
     return datetime.now(timezone.utc).replace(tzinfo=None)
@@ -161,7 +170,32 @@ def _gcpd_json(sess, steam_id, tab, continue_token=None):
     url = f"https://steamcommunity.com/profiles/{steam_id}/gcpd/730/?tab={tab}&ajax=1"
     if continue_token:
         url += f"&continue_token={continue_token}"
-    return sess.get(url, timeout=15).json()
+    resp = sess.get(url, timeout=15, allow_redirects=True)
+    content_type = (resp.headers.get("content-type") or "").lower()
+
+    if "/login/" in resp.url:
+        raise SteamSessionExpiredError("Steam Community trazi novu prijavu.")
+
+    if "application/json" in content_type:
+        return resp.json()
+
+    html = resp.text or ""
+    redirected_away = resp.history and "/gcpd/" not in resp.url
+    looks_signed_out = (
+        "<title>Sign In</title>" in html
+        or "Sign In" in html
+        or "login_btn" in html
+        or "account_pulldown" not in html
+    )
+    has_gcpd_content = "Premier" in html or "matchhistorypremier" in html or 'class="val_left"' in html
+
+    if redirected_away or (looks_signed_out and not has_gcpd_content):
+        raise SteamSessionExpiredError("Steam je odbio GCPD pristup sa sacuvanim cookies.")
+
+    if has_gcpd_content:
+        return {"success": True, "html": html}
+
+    raise ValueError("GCPD ajax nije vratio ni JSON ni prepoznatljiv HTML s ELO podacima.")
 
 
 ELO_PATTERNS = [
@@ -184,7 +218,7 @@ def _search_elo(text):
     return None
 
 
-def _elo_payload(elo, wins=None, ties=None, losses=None):
+def _elo_payload(elo, wins=None, ties=None, losses=None, source=None):
     payload = {"elo": int(elo)}
     if wins is not None:
         payload["wins"] = int(wins)
@@ -192,6 +226,8 @@ def _elo_payload(elo, wins=None, ties=None, losses=None):
         payload["ties"] = int(ties)
     if losses is not None:
         payload["losses"] = int(losses)
+    if source:
+        payload["source"] = source
     return payload
 
 
@@ -351,6 +387,74 @@ def _apply_elo_result(user, result, now=None):
     return elo
 
 
+def _get_refresh_lock(steam_id):
+    with _refresh_locks_guard:
+        lock = _refresh_locks.get(steam_id)
+        if lock is None:
+            lock = threading.Lock()
+            _refresh_locks[steam_id] = lock
+        return lock
+
+
+def _seconds_since_update(last_update, now=None):
+    if not last_update:
+        return None
+    now = now or utc_now()
+    last = _as_utc(last_update).replace(tzinfo=None)
+    return (now - last).total_seconds()
+
+
+def _refresh_is_due(user, max_age, now=None):
+    if max_age is None:
+        return True
+    if user.current_elo is None or user.last_update is None:
+        return True
+    age = _seconds_since_update(user.last_update, now=now)
+    return age is None or age >= max_age
+
+
+def _refresh_user_from_source(steam_id, max_age=None, min_interval=None, force=False):
+    lock = _get_refresh_lock(steam_id)
+    if not lock.acquire(blocking=False):
+        return User.query.filter_by(steam_id=steam_id).first(), False
+
+    try:
+        user = User.query.filter_by(steam_id=steam_id).first()
+        if not user:
+            return None, False
+
+        now = utc_now()
+        if not force and not _refresh_is_due(user, max_age, now=now):
+            return user, False
+
+        throttle_window = min_interval if min_interval is not None else max_age
+        if not force and throttle_window:
+            last_attempt = _refresh_attempts.get(steam_id)
+            now_monotonic = time.monotonic()
+            if last_attempt is not None and (now_monotonic - last_attempt) < throttle_window:
+                return user, False
+            _refresh_attempts[steam_id] = now_monotonic
+        else:
+            _refresh_attempts[steam_id] = time.monotonic()
+
+        cookies = json.loads(user.steam_cookies) if user.steam_cookies else {}
+        result = fetch_elo(user.steam_id, cookies)
+        if not result:
+            return user, False
+
+        _apply_elo_result(user, result, now=now)
+        if result.get("refreshed_cookies"):
+            user.steam_cookies = json.dumps(result["refreshed_cookies"])
+        db.session.commit()
+        return user, True
+    except Exception as e:
+        db.session.rollback()
+        print(f"[refresh] Greska {steam_id}: {e}")
+        return User.query.filter_by(steam_id=steam_id).first(), False
+    finally:
+        lock.release()
+
+
 def fetch_elo(steam_id, cookies):
     """
     Prioritet:
@@ -377,11 +481,13 @@ def fetch_elo(steam_id, cookies):
                     losses = int(m.group(3))
                     elo = int(m.group(4))
                     if 1000 < elo < 50000:
-                        payload = _elo_payload(elo, wins=wins, ties=ties, losses=losses)
+                        payload = _elo_payload(elo, wins=wins, ties=ties, losses=losses, source="gcpd")
                         payload.update(_fetch_today_premier_stats(sess, steam_id))
                         payload["refreshed_cookies"] = refreshed_cookies
                         print(f"[ELO] GCPD ajax {steam_id}: {elo} W:{wins} T:{ties} L:{losses}")
                         return payload
+        except SteamSessionExpiredError as e:
+            print(f"[ELO] Cookies istekli za {steam_id}: {e}")
         except Exception as e:
             print(f"[ELO] GCPD ajax greska: {e}")
 
@@ -399,13 +505,15 @@ def fetch_elo(steam_id, cookies):
                     val = stats.get(stat, 0)
                     if 1000 < val < 50000:
                         print(f"[ELO] API {steam_id}: {val} ({stat})")
-                        payload = _elo_payload(val)
+                        payload = _elo_payload(val, source=f"steam_web_api:{stat}")
                         if cookies:
                             payload["refreshed_cookies"] = _refresh_steam_cookies(cookies)
                         return payload
                 # Ispisi koji stat-ovi postoje radi debug-a
                 rating_stats = {k: v for k, v in stats.items() if "rating" in k.lower()}
                 print(f"[ELO] API {steam_id}: cs_rating nije tu. Rating stats: {rating_stats}")
+            else:
+                print(f"[ELO] API {steam_id}: HTTP {resp.status_code} {resp.text[:120]}")
         except Exception as e:
             print(f"[ELO] API greska: {e}")
 
@@ -424,31 +532,31 @@ def refresh_all_users():
             else:
                 users = User.query.filter(User.steam_cookies.isnot(None)).all()
             for user in users:
-                try:
-                    cookies = json.loads(user.steam_cookies) if user.steam_cookies else {}
-                    result = fetch_elo(user.steam_id, cookies)
-                    if not result:
-                        continue
+                refreshed_user, refreshed = _refresh_user_from_source(user.steam_id, force=True)
+                if not refreshed_user or not refreshed:
+                    continue
 
-                    elo = _apply_elo_result(user, result)
-                    if result.get("refreshed_cookies"):
-                        user.steam_cookies = json.dumps(result["refreshed_cookies"])
-                    db.session.commit()
-
-                    if result.get("today_date") == local_day_key():
-                        print(
-                            f"[refresh] {user.username}: {elo:,} | "
-                            f"W:{user.today_wins or 0} T:{user.today_ties or 0} L:{user.today_losses or 0} danas"
-                        )
-                    else:
-                        print(f"[refresh] {user.username}: {elo:,}")
-                except Exception as e:
-                    db.session.rollback()
-                    print(f"[refresh] Greska {user.steam_id}: {e}")
+                if refreshed_user.today_date == local_day_key():
+                    print(
+                        f"[refresh] {refreshed_user.username}: {refreshed_user.current_elo:,} | "
+                        f"W:{refreshed_user.today_wins or 0} T:{refreshed_user.today_ties or 0} "
+                        f"L:{refreshed_user.today_losses or 0} danas"
+                    )
+                else:
+                    print(f"[refresh] {refreshed_user.username}: {refreshed_user.current_elo:,}")
         time.sleep(REFRESH_SEC)
 
 
 threading.Thread(target=refresh_all_users, daemon=True).start()
+
+
+@app.after_request
+def disable_api_cache(response):
+    if request.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 
 # ── ROUTES ────────────────────────────────────────────────────────────────────
@@ -539,7 +647,11 @@ def api_me():
     if "steam_id" not in session:
         return jsonify({"error": "not_logged_in"}), 401
 
-    user = User.query.filter_by(steam_id=session["steam_id"]).first()
+    user, _ = _refresh_user_from_source(
+        session["steam_id"],
+        max_age=ON_DEMAND_REFRESH_SEC,
+        min_interval=ON_DEMAND_REFRESH_SEC,
+    )
     if not user:
         return jsonify({"error": "user_not_found"}), 404
 
@@ -573,29 +685,29 @@ def save_cookies():
         return jsonify({"error": "Popuni oba polja"}), 400
 
     user = User.query.filter_by(steam_id=session["steam_id"]).first()
-    user.steam_cookies = json.dumps({
-        "sessionid": session_id,
-        "steamLoginSecure": login_sec,
-    })
-    db.session.commit()
-
-    # Odmah fetchuj ELO
     cookies = {"sessionid": session_id, "steamLoginSecure": login_sec}
     result = fetch_elo(session["steam_id"], cookies)
 
-    if result:
-        _apply_elo_result(user, result)
-        if result.get("refreshed_cookies"):
-            user.steam_cookies = json.dumps(result["refreshed_cookies"])
-        db.session.commit()
+    if not result or result.get("source") != "gcpd":
+        return jsonify({
+            "error": "Steam cookies nisu vazeci ili nemaju pristup GCPD stranici. Kopiraj sveze sessionid i steamLoginSecure iz trenutno ulogovanog browsera."
+        }), 400
 
-    return jsonify({"success": True, "elo": result["elo"] if result else None})
+    user.steam_cookies = json.dumps(result.get("refreshed_cookies") or cookies)
+    _apply_elo_result(user, result)
+    db.session.commit()
+
+    return jsonify({"success": True, "elo": result["elo"]})
 
 
 @app.route("/api/elo/<steam_id>")
 def api_elo(steam_id):
     """Javni endpoint za overlay."""
-    user = User.query.filter_by(steam_id=steam_id).first()
+    user, _ = _refresh_user_from_source(
+        steam_id,
+        max_age=ON_DEMAND_REFRESH_SEC,
+        min_interval=ON_DEMAND_REFRESH_SEC,
+    )
     if not user:
         return jsonify({"error": "user_not_found"}), 404
 
@@ -671,7 +783,7 @@ const $s=document.getElementById('s');
 const $b=document.getElementById('b');
 async function poll(){{
   try{{
-    const d=await fetch('/api/elo/{steam_id}').then(r=>r.json());
+    const d=await fetch('/api/elo/{steam_id}?_='+Date.now(), {{cache:'no-store'}}).then(r=>r.json());
     if(d.elo){{
       const t=T(d.elo);
       if($e1){{
