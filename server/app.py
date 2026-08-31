@@ -12,23 +12,31 @@ from pathlib import Path
 import re
 import threading
 import time
+from typing import Any
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 import requests
 from starlette.middleware.sessions import SessionMiddleware
 import uvicorn
 
 BASE_DIR = os.path.dirname(__file__)
 CLIENT_DIR = Path(BASE_DIR).parent.joinpath("client").resolve()
-LOCAL_DIR = Path(BASE_DIR).joinpath("local").resolve()
+# Custom assets zive u server/local/, a na nekim instalacijama u korijenskom local/.
+_LOCAL_CANDIDATES = [Path(BASE_DIR).joinpath("local"), Path(BASE_DIR).parent.joinpath("local")]
+LOCAL_DIR = next(
+    (path.resolve() for path in _LOCAL_CANDIDATES if path.is_dir()),
+    _LOCAL_CANDIDATES[0].resolve(),
+)
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 from db import db, User
-from steam_auth import get_steam_profile
+from steam_auth import get_steam_profile, validate_steam_login
 
 
 _refresh_stop_event = threading.Event()
@@ -74,6 +82,18 @@ app.add_middleware(
     same_site="lax",
     https_only=os.environ.get("RAILWAY_ENVIRONMENT") is not None,
 )
+
+# index.html i dashboard.html ucitavaju /client/i18n.js, pa client/ mora biti serviran.
+app.mount("/client", StaticFiles(directory=CLIENT_DIR), name="client")
+
+
+class CookiesPayload(BaseModel):
+    sessionid: str = ""
+    steamLoginSecure: str = ""
+
+
+class ManualEloPayload(BaseModel):
+    elo: Any = None
 
 
 def initialize_database():
@@ -641,9 +661,7 @@ def login_steam(request: Request):
 @app.get("/auth/steam/callback")
 def steam_callback(request: Request):
     params = dict(request.query_params)
-    params["openid.mode"] = "check_authentication"
-    resp = requests.post("https://steamcommunity.com/openid/login", data=params, timeout=10)
-    if "is_valid:true" not in resp.text:
+    if not params.get("openid.claimed_id") or not validate_steam_login(params):
         return HTMLResponse("Steam login failed.", status_code=401)
 
     claimed_id = request.query_params.get("openid.claimed_id", "")
@@ -691,7 +709,7 @@ def api_status():
 
 
 @app.get("/local/{filename:path}")
-def serve_local(filename):
+def serve_local(filename: str):
     """Servira fajlove iz server/local/ foldera (gitignored, za custom assets)."""
     target = LOCAL_DIR.joinpath(filename).resolve()
     try:
@@ -733,13 +751,13 @@ def api_me(request: Request):
 
 
 @app.post("/api/save-cookies")
-def save_cookies(request: Request, data: dict):
+def save_cookies(request: Request, data: CookiesPayload = CookiesPayload()):
     """Korisnik unosi Steam cookies kao alternativu API kljucu."""
     if "steam_id" not in request.session:
         return JSONResponse({"error": "not_logged_in"}, status_code=401)
 
-    session_id = data.get("sessionid", "").strip()
-    login_sec  = data.get("steamLoginSecure", "").strip()
+    session_id = data.sessionid.strip()
+    login_sec  = data.steamLoginSecure.strip()
 
     if not session_id or not login_sec:
         return JSONResponse(
@@ -748,6 +766,9 @@ def save_cookies(request: Request, data: dict):
         )
 
     user = User.query.filter_by(steam_id=request.session["steam_id"]).first()
+    if not user:
+        return JSONResponse({"error": "user_not_found"}, status_code=404)
+
     cookies = {"sessionid": session_id, "steamLoginSecure": login_sec}
     result = fetch_elo(request.session["steam_id"], cookies)
 
@@ -768,7 +789,7 @@ def save_cookies(request: Request, data: dict):
 
 
 @app.get("/api/elo/{steam_id}")
-def api_elo(steam_id):
+def api_elo(steam_id: str):
     """Javni endpoint za overlay."""
     user, _ = _refresh_user_from_source(
         steam_id,
@@ -791,13 +812,12 @@ def api_elo(steam_id):
 
 
 @app.post("/api/set-elo")
-def set_elo_manual(request: Request, data: dict):
+def set_elo_manual(request: Request, data: ManualEloPayload = ManualEloPayload()):
     """Ručno postavljanje ELO-a kad automatski ne radi."""
     if "steam_id" not in request.session:
         return JSONResponse({"error": "not_logged_in"}, status_code=401)
-    elo = data.get("elo")
     try:
-        elo = int(elo)
+        elo = int(data.elo)
         if not (1000 < elo < 50000):
             raise ValueError
     except (TypeError, ValueError):
@@ -810,11 +830,8 @@ def set_elo_manual(request: Request, data: dict):
     if not user:
         return JSONResponse({"error": "user_not_found"}, status_code=404)
 
-    prev = user.current_elo
-    user.current_elo = elo
-    user.prev_elo    = prev
-    user.elo_diff    = (elo - prev) if prev else None
-    user.last_update = utc_now()
+    # Isti put kao automatski refresh, da rucni unos ne pokvari dnevne brojace.
+    _apply_elo_result(user, {"elo": elo})
     db.session.commit()
     return {"success": True, "elo": elo}
 
@@ -822,7 +839,7 @@ def set_elo_manual(request: Request, data: dict):
 # ── OVERLAY ───────────────────────────────────────────────────────────────────
 
 @app.get("/overlay/{steam_id}")
-def overlay(steam_id, request: Request):
+def overlay(steam_id: str, request: Request):
     user = User.query.filter_by(steam_id=steam_id).first()
     if not user:
         return HTMLResponse("User not found", status_code=404)
@@ -1030,4 +1047,14 @@ poll();setInterval(poll,15000);
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # 0.0.0.0 znaci "slusaj na svim interfejsima" i nije adresa koju browser moze otvoriti.
+    # U browseru koristi http://localhost:<port>.
+    host = os.environ.get("HOST", "0.0.0.0")
+    print(f"\n  ->  Otvori u browseru: http://localhost:{port}\n", flush=True)
+    uvicorn.run(
+        app,
+        host=host,
+        port=port,
+        proxy_headers=True,
+        forwarded_allow_ips=os.environ.get("FORWARDED_ALLOW_IPS", "*"),
+    )

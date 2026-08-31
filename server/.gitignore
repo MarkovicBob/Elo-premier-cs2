@@ -3,7 +3,6 @@
 __pycache__/
 *.pyc
 *.pyo
-flask_session/
 *.db
 *.sqlite
 .DS_Store
