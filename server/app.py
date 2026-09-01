@@ -416,6 +416,7 @@ def _apply_elo_result(user, result, now=None):
     prev_total_losses = user.total_losses or 0
     prev_total_ties = user.total_ties or 0
 
+    # Na pocetku novog dana cuvamo baseline iz kog racunamo dnevnu ELO razliku i W/L/T.
     if new_day:
         user.session_date = today
         user.session_elo = prev if prev is not None else elo
@@ -453,6 +454,7 @@ def _apply_elo_result(user, result, now=None):
 
 
 def _get_refresh_lock(steam_id):
+    # Svaki Steam nalog ima svoj lock, pa razliciti korisnici ne blokiraju jedni druge.
     with _refresh_locks_guard:
         lock = _refresh_locks.get(steam_id)
         if lock is None:
@@ -480,6 +482,7 @@ def _refresh_is_due(user, max_age, now=None):
 
 def _refresh_user_from_source(steam_id, max_age=None, min_interval=None, force=False):
     lock = _get_refresh_lock(steam_id)
+    # Ne cekamo drugi refresh istog korisnika; vracamo trenutno stanje iz baze.
     if not lock.acquire(blocking=False):
         return User.query.filter_by(steam_id=steam_id).first(), False
 
@@ -492,6 +495,7 @@ def _refresh_user_from_source(steam_id, max_age=None, min_interval=None, force=F
         if not force and not _refresh_is_due(user, max_age, now=now):
             return user, False
 
+        # Monotonic sat je bezbedniji za throttling jer promena sistemskog vremena ne utice na njega.
         throttle_window = min_interval if min_interval is not None else max_age
         if not force and throttle_window:
             last_attempt = _refresh_attempts.get(steam_id)
@@ -510,6 +514,7 @@ def _refresh_user_from_source(steam_id, max_age=None, min_interval=None, force=F
         _apply_elo_result(user, result, now=now)
         if result.get("refreshed_cookies"):
             user.steam_cookies = json.dumps(result["refreshed_cookies"])
+        # ELO, dnevna statistika i osvezeni cookies cuvaju se u jednoj transakciji.
         db.session.commit()
         return user, True
     except Exception as e:
@@ -528,6 +533,7 @@ def fetch_elo(steam_id, cookies):
     """
 
     # ── 1. GCPD ajax endpoint (vraca JSON sa HTML tablicom) ───────────────────
+    # Prvo pokusavamo bogatiji GCPD izvor jer, pored ELO-a, vraca i W/L/T podatke.
     if cookies:
         refreshed_cookies = _refresh_steam_cookies(cookies)
         sess = _steam_session(refreshed_cookies)
@@ -557,6 +563,7 @@ def fetch_elo(steam_id, cookies):
             print(f"[ELO] GCPD ajax greska: {e}")
 
     # ── 2. Steam Web API ───────────────────────────────────────────────────────
+    # Steam Web API je fallback kada GCPD cookies ne postoje ili vise nisu vazeci.
     api_key = os.environ.get("STEAM_API_KEY", "")
     if api_key:
         try:
@@ -589,6 +596,7 @@ def fetch_elo(steam_id, cookies):
 
 def refresh_all_users():
     """Background thread - osvezava ELO za sve korisnike svakih REFRESH_SEC sekundi."""
+    # Event omogucava uredno gasenje daemon niti zajedno sa FastAPI aplikacijom.
     while not _refresh_stop_event.is_set():
         try:
             has_api_key = bool(os.environ.get("STEAM_API_KEY", ""))

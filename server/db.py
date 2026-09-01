@@ -13,6 +13,7 @@ _request_scope = ContextVar("database_request_scope", default=None)
 
 def _session_scope():
     """Use one SQLAlchemy session per request, or per background thread."""
+    # ContextVar razdvaja paralelne FastAPI zahteve, a ID niti pokriva background posao.
     return _request_scope.get() or ("thread", threading.get_ident())
 
 
@@ -44,6 +45,7 @@ class Database:
         return _request_scope.set(("request", object()))
 
     def end_request(self, token):
+        # remove() zatvara scoped sesiju da sledeci zahtev ne nasledi stare objekte ili transakciju.
         self.session.remove()
         _request_scope.reset(token)
 
